@@ -47,10 +47,14 @@ namespace GanStudio
 
         public const string FavoritesDirName = "favorites";
         public const string SampleDirName = "portraits";
+        public const string ScriptsDirName = "scripts";
 
         public List<Tuple<string, float[,,]>> _currentNoise = null;  // todo: add multi-map support
         public float[] _averageAll;
-        public List<float[,]> currentFmaps;
+        public List<List<float[,]>> currentFmaps;
+        public List<float[,]> fmapsSum;
+        public List<Tuple<string, List<float[,]>>> imageAndFmapsRecord = new List<Tuple<string, List<float[,]>>>();
+        public int fmapsTotalSummed = 0;
         public byte[] _graphHash;
         public string _graphHashStr;
         public LatentManipulator()
@@ -78,6 +82,7 @@ namespace GanStudio
             LatentCsvPath = Path.Combine(DataDir, "latents.csv");
             AttributesCsvPath = Path.Combine(DataDir, "attributes.csv");
             AverageLatentCsvPath = Path.Combine(DataDir, "average_latent.csv");
+            currentFmaps = new List<List<float[,]>>();
         }
         public float[] GetAverageLatent()
         {
@@ -97,7 +102,6 @@ namespace GanStudio
         {
             return VectorCombine(baseLatent, _attributeToLatent[attribute], 1.0f, factor);
         }
-
         public float[] ModUniqueness(float[] latent, float factor)
         {
             return VectorCombine(latent, _averageAll, factor, 1.0f - factor);
@@ -137,7 +141,7 @@ namespace GanStudio
             }
             return result;
         }
-        public string GenerateImage(float[] latent, string fname, string dir = SampleDirName, List<float[,,]> fmapMods = null, int outLayer = -1)
+        public string GenerateImage(float[] latent, string fname, string dir = SampleDirName, List<float[,,]> fmapMods = null, int outLayer = -1, bool outAllLayers = false, bool doRecordFmaps = false)
         {
             string path = Path.Combine(dir, fname);
             if (latent.Contains(float.NaN))
@@ -156,6 +160,9 @@ namespace GanStudio
                 new Tuple<string, int[]>("generator_1/Res64/FmapRes64", new int[] { 1, 128, 64, 256 }),
                 new Tuple<string, int[]>("generator_1/Res128/FmapRes128", new int[] { 1, 256, 128, 128 }),
                 new Tuple<string, int[]>("generator_1/Res256/FmapRes256", new int[] { 1, 512, 256, 64 })
+                //new Tuple<string, int[]>("generator_1/Res64/FmapRes64", new int[] { 1, 128, 64, 512 }),
+                //new Tuple<string, int[]>("generator_1/Res128/FmapRes128", new int[] { 1, 256, 128, 256 }),
+                //new Tuple<string, int[]>("generator_1/Res256/FmapRes256", new int[] { 1, 512, 256, 128 })
             };
             List<Tuple<string, int[]>> layersOut = new List<Tuple<string, int[]>>()
             {
@@ -166,6 +173,9 @@ namespace GanStudio
                 new Tuple<string, int[]>("generator_1/Res64/add", new int[] { 1, 128, 64, 256 }),
                 new Tuple<string, int[]>("generator_1/Res128/add", new int[] { 1, 256, 128, 128 }),
                 new Tuple<string, int[]>("generator_1/Res256/add", new int[] { 1, 512, 256, 64 })
+                //new Tuple<string, int[]>("generator_1/Res64/add", new int[] { 1, 128, 64, 512 }),
+                //new Tuple<string, int[]>("generator_1/Res128/add", new int[] { 1, 256, 128, 256 }),
+                //new Tuple<string, int[]>("generator_1/Res256/add", new int[] { 1, 512, 256, 128 })
             };
             
             List<Tuple<string, int[]>> noiseData = new List<Tuple<string, int[]>>
@@ -227,7 +237,18 @@ namespace GanStudio
             List<GanTools.TensorData> outputs = new List<GanTools.TensorData>();
             outputs.Add(new TensorData("output", null, 0, null));
 
-            if (outLayer != -1)
+            if (outAllLayers)
+            {
+                for (int i = 0; i < layersOut.Count; i++)
+                {
+                    fmapsName = layersOut[i].Item1;
+                    int[] dims = layersOut[i].Item2;
+                    float[] newFmap = new float[dims[1] * dims[2] * dims[3]];
+                    // ToArray() may copy, in which case this won't work
+                    outputs.Add(new TensorData(fmapsName, newFmap, 4, new int[] { 1, dims[1], dims[2], dims[3] }));
+                }
+            }
+            else if (outLayer != -1)
             {
                 fmapsName = layersOut[outLayer].Item1;
                 int[] dims = layersOut[outLayer].Item2;
@@ -255,12 +276,36 @@ namespace GanStudio
             //{
             //    _currentFmap = outMaps;
             //}
-            if (outLayer != -1)
+            if (outAllLayers)
+            {
+                currentFmaps = new List<List<float[,]>>();
+                for (int layerIndex = 0; layerIndex < layersOut.Count; layerIndex++)
+                {
+                    int[] dims = layersOut[layerIndex].Item2;
+                    float[,,] fmapShaped = new float[dims[1], dims[2], dims[3]];
+                    Buffer.BlockCopy(outputs[layerIndex+1].Data, 0, fmapShaped, 0, dims[1] * dims[2] * dims[3] * sizeof(float));
+                    List<float[,]> currentResFmap = new List<float[,]>();
+                    for (int i = 0; i < dims[3]; i++)
+                    {
+                        float[,] newFmap = new float[dims[1], dims[2]];
+                        for (int j = 0; j < dims[1]; j++)
+                        {
+                            for (int k = 0; k < dims[2]; k++)
+                            {
+                                newFmap[j, k] = fmapShaped[j, k, i];
+                            }
+                        }
+                        currentResFmap.Add(newFmap);
+                    }
+                    currentFmaps.Add(currentResFmap);
+                }
+            }
+            else if (outLayer != -1)
             {
                 int[] dims = layersOut[outLayer].Item2;
                 float[,,] fmapShaped = new float[dims[1], dims[2], dims[3]];
                 Buffer.BlockCopy(outputs[1].Data, 0, fmapShaped, 0, dims[1] * dims[2] * dims[3] * sizeof(float));
-                currentFmaps = new List<float[,]>();
+                List<float[,]> currentResFmap = new List<float[,]>();
                 for (int i = 0; i < dims[3]; i++)
                 {
                     float[,] newFmap = new float[dims[1], dims[2]];
@@ -271,7 +316,36 @@ namespace GanStudio
                             newFmap[j, k] = fmapShaped[j, k, i];
                         }
                     }
-                    currentFmaps.Add(newFmap);
+                    currentResFmap.Add(newFmap);
+                }
+                int oldCount = currentFmaps.Count;
+                for (int i = 0; i <= outLayer - oldCount; i++)
+                {
+                    currentFmaps.Add(null);
+                }
+                currentFmaps[outLayer] = currentResFmap;
+                if (doRecordFmaps)
+                {
+                    imageAndFmapsRecord.Add(new Tuple<string, List<float[,]>>(path, currentResFmap));
+                    if (fmapsSum == null || fmapsSum.Count == 0 || currentResFmap[0].GetLength(0) != fmapsSum[0].GetLength(0))
+                    {
+                        fmapsSum = currentResFmap;
+                    }
+                    else
+                    {
+                        for (int fmap = 0; fmap < currentFmaps.Count; fmap++)
+                        {
+                            for (int i = 0; i < currentResFmap[0].GetLength(0); i++)
+                            {
+                                for (int j = 0; j < currentResFmap[0].GetLength(1); j++)
+                                {
+                                    fmapsSum[fmap][i, j] += currentResFmap[fmap][i, j];
+                                    
+                                }
+                            }
+                        }
+                    }
+                    fmapsTotalSummed += 1;
                 }
             }
             //if (_currentNoise == null)
@@ -312,7 +386,6 @@ namespace GanStudio
             }
            
         }
-
         public float[] ExtractLatentFromImage(string path)
         {
             byte[] fileBytes = File.ReadAllBytes(path);
@@ -355,7 +428,6 @@ namespace GanStudio
             }
             return latent;
         }
-
         public SortedDictionary<string, float[]> GetNameToLatentMap()
         {
             // Build a dictionary of all file names record in the the csv files that map the name
@@ -401,7 +473,6 @@ namespace GanStudio
             }
             return fnameToLatent;
         }
-
         public float[] LoadSavedLatent(string filePath)
         {
             string fileName = Path.GetFileName(filePath);
@@ -435,7 +506,6 @@ namespace GanStudio
                 return fnameToLatent[fileName];
             }
         }
-
         public void DeleteAttributeFromFile(string att, string path)
         {
             var tempFile = Path.GetTempFileName();
@@ -444,7 +514,6 @@ namespace GanStudio
             File.Delete(path);
             File.Move(tempFile, path);
         }
-
         public void FavoriteAttribute(string att)
         {
             // Write attribute to favorite attributes file
@@ -457,7 +526,28 @@ namespace GanStudio
                 csv.Flush();
             }
         }
-
+        public List<float[,]> AverageFmaps()
+        {
+            List<float[,]> averagedFmaps = new List<float[,]>();
+            for (int fmap = 0; fmap < fmapsSum.Count; fmap++)
+            {
+                averagedFmaps.Add(new float[fmapsSum[0].GetLength(0), fmapsSum[0].GetLength(1)]);
+                for (int i = 0; i < fmapsSum[0].GetLength(0); i++)
+                {
+                    for (int j = 0; j < fmapsSum[0].GetLength(1); j++)
+                    {
+                        averagedFmaps[fmap][i, j] = fmapsSum[fmap][i, j] / fmapsTotalSummed;
+                    }
+                }
+            }
+            return averagedFmaps;
+        }
+        public void ResetFmapsSum()
+        {
+            fmapsSum = new List<float[,]>();
+            imageAndFmapsRecord = new List<Tuple<string, List<float[,]>>>();
+            fmapsTotalSummed = 0;
+        }
         public int ReadAverageLatentFromCsv(string csvPath)
         {
             if (!File.Exists(csvPath))
@@ -483,7 +573,6 @@ namespace GanStudio
             }
             return 1;
         }
-
         public List<string> ReadAttributesFromCsv(string csvPath)
         {
             if (!File.Exists(csvPath))
@@ -512,12 +601,10 @@ namespace GanStudio
             }
             return newAttributes;
         }
-
         public void ResetAverage()
         {
             ReadAverageLatentFromCsv(AverageLatentCsvPath);
         }
-
         public void ImportAttributes(string fileName)
         {
             List<string> newAttributes = ReadAttributesFromCsv(fileName);
@@ -542,7 +629,6 @@ namespace GanStudio
                 }
             }
         }
-
         public List<Tuple<float[], List<string>>> BuildCombinations(List<Tuple<float[], List<string>>> currentLatents, Stack<string> attributesToModify,
             Dictionary<string, List<float[]>> changesForAttribute)
         {
@@ -569,7 +655,6 @@ namespace GanStudio
             }
             return BuildCombinations(newLatents, attributesToModify, changesForAttribute);
         }
-
         public List<Tuple<float[], List<string>>> BuildSequences(List<Tuple<float[], List<string>>> currentLatents, Stack<string> attributesToModify,
             Dictionary<string, List<float[]>> changesForAttribute)
         {

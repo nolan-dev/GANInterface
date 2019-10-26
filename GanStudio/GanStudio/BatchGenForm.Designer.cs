@@ -73,7 +73,6 @@
             this.killButton.Size = new System.Drawing.Size(103, 73);
             this.killButton.TabIndex = 3;
             this.killButton.Text = "Kill Application";
-            this.toolTip1.SetToolTip(this.killButton, "Kill Application Immediately");
             this.killButton.UseVisualStyleBackColor = true;
             this.killButton.Click += new System.EventHandler(this.KillButton_Click);
             // 

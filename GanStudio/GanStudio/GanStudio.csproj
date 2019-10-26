@@ -69,7 +69,7 @@
   <ItemGroup>
     <Reference Include="CsvHelper, Version=12.0.0.0, Culture=neutral, PublicKeyToken=8c4959082be5c823, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\..\WindowsTFInterface\Result\CsvHelper.dll</HintPath>
+      <HintPath>..\..\GanTools\GanTools\bin\Debug\CsvHelper.dll</HintPath>
     </Reference>
     <Reference Include="GanTools, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -102,6 +102,12 @@
     <Compile Include="FmapsForm.Designer.cs">
       <DependentUpon>FmapsForm.cs</DependentUpon>
     </Compile>
+    <Compile Include="FmapViewer.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FmapViewer.Designer.cs">
+      <DependentUpon>FmapViewer.cs</DependentUpon>
+    </Compile>
     <Compile Include="GanStudio.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -116,6 +122,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="FmapsForm.resx">
       <DependentUpon>FmapsForm.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="FmapViewer.resx">
+      <DependentUpon>FmapViewer.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="GanStudio.resx">
       <DependentUpon>GanStudio.cs</DependentUpon>
