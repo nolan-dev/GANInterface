@@ -944,7 +944,7 @@ namespace GanStudio
                 }
                 CustomGenerateImage(i, batchDir);
             }
-            if (!_interrupted && Directory.GetFiles(batchDir).Count() != batchSize)
+            if (!_interrupted && Directory.GetFiles(batchDir).Count() != batchSize && Directory.GetFiles(batchDir).Count() != 2*batchSize)
             {
                 MessageBox.Show("Sorry, something went wrong with the batch generation, please try again");
             }

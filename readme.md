@@ -11,6 +11,10 @@ The GanStudio tool includes features such as batch generation, truncation trick 
 
 All these features were added on a ad hoc basis and optimized for implementation speed, which has resulted in extremely messy UI/code unfortunately:
 
-![UI](images/ui.png) 
+![UI](images/demo_fmaps.png) 
+![UI](images/demo_attributes.png) 
+
 
 However, I think there is value in quickly creating interactive tools like this, I believe they can help give insight where approaches that allow slower interaction (such as running cells in a jupyter notebook) don't.  Evidence for this is pending some experimental results.
+
+Images from a model trained on an anime dataset https://www.gwern.net/Danbooru2018
