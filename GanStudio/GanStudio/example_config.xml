@@ -1,0 +1,60 @@
+<model>
+    <resolution>
+        <height>256</height>
+        <width>256</width>
+    </resolution>
+    <intermediate_latent_name>intermediate_latent</intermediate_latent_name>
+    <output_name>output</output_name>
+    <input_layers>
+        <layer1>
+            <name>generator_1/Res4/FmapRes4</name>
+            <dims>1, 4, 4, 512</dims>
+        </layer1>
+        <layer2>
+            <name>generator_1/Res8/FmapRes8</name> 
+            <dims>1, 8, 8, 512</dims>
+        </layer2>
+        <layer3>
+            <name>generator_1/Res16/FmapRes16</name>
+            <dims>1, 16, 16, 512</dims>
+        </layer3>
+        <layer4>
+            <name>generator_1/Res32/FmapRes32</name>
+            <dims>1, 32, 32, 512</dims>
+        </layer4>
+        <layer5>
+            <name>generator_1/Res64/FmapRes64</name>
+            <dims>1, 64, 64, 512</dims>
+        </layer5>
+        <layer6>
+            <name>generator_1/Res128/FmapRes128</name>
+            <dims>1, 128, 128, 256</dims>
+        </layer6>
+    </input_layers>
+    <output_layers>
+        <layer1>
+            <name>generator_1/Res4/add</name>
+            <dims>1, 4, 4, 512</dims>
+        </layer1>
+        <layer2>
+            <name>generator_1/Res8/add</name>
+            <dims>1, 8, 8, 512</dims>
+        </layer2>
+        <layer3>
+            <name>generator_1/Res16/add</name>
+            <dims>1, 16, 16, 512</dims>
+        </layer3>
+        <layer4>
+            <name>generator_1/Res32/add</name>
+            <dims>1, 32, 32, 512</dims>
+        </layer4>
+        <layer5>
+            <name>generator_1/Res64/add</name>
+            <dims>1, 64, 64, 512</dims>
+        </layer5>
+        <layer6>
+            <name>generator_1/Res128/add</name>
+            <dims>1, 128, 128, 256</dims>
+        </layer6>
+    </output_layers>
+</model>

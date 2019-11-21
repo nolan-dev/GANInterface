@@ -17,25 +17,36 @@ namespace GanStudio
 
         public delegate void AddFmapDelegate(string imagePath, float[,] fmap, int fmapIndex);
         public AddFmapDelegate addFmapDelegate;
+        bool colorblindMode;
 
-        public FmapViewer(GanStudio parent)
+        public FmapViewer(GanStudio parent, bool _colorblindMode = false)
         {
             InitializeComponent();
             addFmapDelegate = new AddFmapDelegate(AddFmapMethod);
             parent.Invoke(parent.fmapsViewerStartedDelegate);
+            colorblindMode = _colorblindMode;
         }
         public void AddFmapMethod(string imagePath, float [,] fmap, int fmapIndex)
         {
+            string strFmap = string.Format("{0}", fmapIndex);
+            GroupBox imageWithCaption = new GroupBox();
             PictureBox pic1 = new PictureBox();
-
             pic1.Image = Image.FromFile(imagePath);
             pic1.SizeMode = PictureBoxSizeMode.AutoSize;
             pic1.Paint += PictureBox1_Paint;
             pic1.Text = string.Format("{0}", _fmapList.Count);
-            new ToolTip().SetToolTip(pic1, string.Format("fmap: {0}", fmapIndex));
+            imageWithCaption.Height = pic1.Height + 25;
+            imageWithCaption.Width = pic1.Width;
+            TextBox fmapBox = new TextBox();
+            fmapBox.Text = strFmap;
+            fmapBox.Location = new System.Drawing.Point(0, pic1.Height + 2);
+            fmapBox.Size = new System.Drawing.Size(100, 20);
+            imageWithCaption.Controls.Add(pic1);
+            imageWithCaption.Controls.Add(fmapBox);
+            new ToolTip().SetToolTip(pic1, string.Format("fmap: {0}", strFmap));
             _picList.Add(pic1);
             _fmapList.Add(fmap);
-            flowLayoutPanel1.Controls.Add(pic1);
+            flowLayoutPanel1.Controls.Add(imageWithCaption);
             //DrawFmap(new float[4, 8], pic1);
         }
         private void PictureBox1_Paint(object sender, PaintEventArgs e)
@@ -73,9 +84,20 @@ namespace GanStudio
                         if (fmap[row, column] > 0)
                         {
                             Rectangle ee = new Rectangle(column * rectWidth, row * rectHeight, rectWidth, rectHeight);
-                            using (Pen pen = new Pen(Color.FromArgb(255 - colorMagnitude, 255, 255 - colorMagnitude), 16.0f * lineMagnitude / (float)Math.Pow(fmap.GetLength(1), 1.5)))
+                            if (colorblindMode)
                             {
-                                g.DrawRectangle(pen, ee);
+                                using (Pen pen = new Pen(Color.FromArgb(255 - colorMagnitude, 255 - colorMagnitude, 255), 16.0f * lineMagnitude / (float)Math.Pow(fmap.GetLength(1), 1.5)))
+                                {
+                                    g.DrawRectangle(pen, ee);
+                                }
+                            }
+                            else
+                            {
+                                using (Pen pen = new Pen(Color.FromArgb(255 - colorMagnitude, 255, 255 - colorMagnitude), 16.0f * lineMagnitude / (float)Math.Pow(fmap.GetLength(1), 1.5)))
+                                {
+                                    g.DrawRectangle(pen, ee);
+                                }
+
                             }
                         }
                         else if (fmap[row, column] < 0)

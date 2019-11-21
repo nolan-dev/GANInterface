@@ -12,19 +12,35 @@ namespace GanTools
         {
             return new JaggedArrayMarshaler();
         }
-        GCHandle[] handles;
-        GCHandle buffer;
+        // Only one class is created when calling the external function, so have to keep track of all GCHandle Allocs to avoid memory leaks
+        List<GCHandle[]> handleList = null;
+        List<GCHandle> bufferList = null;
         Array[] array;
         public void CleanUpManagedData(object ManagedObj)
         {
         }
         public void CleanUpNativeData(IntPtr pNativeData)
         {
-            buffer.Free();
-            foreach (GCHandle handle in handles)
+            if (bufferList != null)
             {
-                handle.Free();
+                foreach (GCHandle buffer in bufferList)
+                {
+                    buffer.Free();
+                }
+
             }
+            if (bufferList != null)
+            {
+                foreach (GCHandle[] handles in handleList)
+                {
+                    foreach (GCHandle handle in handles)
+                    {
+                        handle.Free();
+                    }
+                }
+            }
+            handleList = null;
+            bufferList = null;
         }
         public int GetNativeDataSize()
         {
@@ -32,8 +48,16 @@ namespace GanTools
         }
         public IntPtr MarshalManagedToNative(object ManagedObj)
         {
+            if (handleList == null)
+            {
+                handleList = new List<GCHandle[]>();
+            }
+            if (bufferList == null)
+            {
+                bufferList = new List<GCHandle>();
+            }
             array = (Array[])ManagedObj;
-            handles = new GCHandle[array.Length];
+            GCHandle[] handles = new GCHandle[array.Length];
             for (int i = 0; i < array.Length; i++)
             {
                 handles[i] = GCHandle.Alloc(array[i], GCHandleType.Pinned);
@@ -43,12 +67,16 @@ namespace GanTools
             {
                 pointers[i] = handles[i].AddrOfPinnedObject();
             }
-            buffer = GCHandle.Alloc(pointers, GCHandleType.Pinned);
+            GCHandle buffer = GCHandle.Alloc(pointers, GCHandleType.Pinned);
+            handleList.Add(handles);
+            bufferList.Add(buffer);
             return buffer.AddrOfPinnedObject();
         }
         public object MarshalNativeToManaged(IntPtr pNativeData)
         {
-            return array;
+            // doesn't get called (todo: lookup)
+            //return array;
+            return null;
         }
     }
     public struct TensorData
@@ -85,7 +113,7 @@ namespace GanTools
         //    string fmap_name, float[,,] output_fmaps, float[,,] input_fmaps, int fmap_height, int fmap_width, int use_input_fmaps);
 
         [DllImport("TensorflowInterface.dll")]
-        public static extern int generate_interemdiate_latent(float[] out_intermediate_latent);
+        public static extern int generate_intermediate_latent(float[] out_intermediate_latent);
 
         [DllImport("TensorflowInterface.dll")]
         public static extern int initialize_global_session(string graph_path);
@@ -122,7 +150,7 @@ namespace GanTools
         public float[] GenerateNewIntermediateLatent()
         {
             float[] newIntermediate = new float[512];
-            generate_interemdiate_latent(newIntermediate);
+            generate_intermediate_latent(newIntermediate);
             return newIntermediate;
         }
         public void CloseSession()

@@ -20,10 +20,7 @@ __declspec(dllexport) int image_and_fmaps_from_latent(int num_inputs, float** in
 //__declspec(dllexport) int image_and_fmaps_from_latent(float* latent, const char* input_tensor_name, const char* out_path, const char* fmap_name, float* output_fmaps,
 //	float* input_fmaps, int fmap_height, int fmap_width, BOOL use_input_fmaps);
 
-__declspec(dllexport) int image_from_latent(float* latent, const char* input_tensor_name, const char* out_path,
-	int fmap_channels, int fmap_height, int fmap_width, float* fmaps, const char* fmap_name);
-
-__declspec(dllexport) int generate_interemdiate_latent(float* out_intermediate_latent, const char* graph_path);
+__declspec(dllexport) int generate_intermediate_latent(float* out_intermediate_latent);
 
 __declspec(dllexport) int initialize_global_session(const char* graph_path);
 

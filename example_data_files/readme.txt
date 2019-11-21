@@ -1,0 +1,1 @@
+example data files (for graph file used in https://towardsdatascience.com/animating-ganime-with-stylegan-the-tool-c5a2c31379d)

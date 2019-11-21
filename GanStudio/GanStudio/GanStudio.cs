@@ -13,6 +13,7 @@ using CsvHelper;
 using Microsoft.VisualBasic;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.Text;
+using System.Xml;
 
 namespace GanStudio
 {
@@ -55,7 +56,7 @@ namespace GanStudio
         public delegate void Finished();
         public Finished finishedDelegate;
 
-        private const string defaultTitle = "Gan Studio (Alpha)";
+        private const string defaultTitle = "Gan Studio";
         private string _currentImageName;
         private string _prevImagePath = null;
         private string _currentImagePath = null;
@@ -65,6 +66,8 @@ namespace GanStudio
         private List<float[]> _fmapMods = new List<float[]>();
         private List<string> _fmapScripts = new List<string>();
         private List<int> _fmapMults = new List<int>();
+        private List<float> _fmapMultsScaled = new List<float>();
+        private List<int> _fmapButtonsDisplayed = new List<int>();
         private List<string> _fmapGroupList = new List<string>();
 
         private Dictionary<int, int> _rowCountToFmapCount = new Dictionary<int, int>
@@ -77,7 +80,8 @@ namespace GanStudio
             { 128, 128 }
         };
         private int[] _dragPointStart = null;
-        private int[] _maxRes = { 512, 256 };
+        //private int[] _maxRes = { 512, 256 };
+        private int[] _maxRes = { 256, 256 };
         private bool _showingSpatialMod = false;
         private bool _showingOld = false;
         private bool _showingAdvancedAttributes = false;
@@ -122,8 +126,21 @@ namespace GanStudio
         {
             return string.Format("sample_{0}.png", Guid.NewGuid());
         }
+        private void DisplayImage(string path)
+        {
+            pictureBox1.Image = Image.FromFile(path);
+            // relocate controls around image
+            groupBoxGeneralControls.Location = new Point(groupBoxGeneralControls.Location.X, pictureBox1.Size.Height + pictureBox1.Location.Y);
+            groupBoxAdvancedControls.Location = new Point(Math.Max(pictureBox1.Size.Width + pictureBox1.Location.X, groupBoxGeneralControls.Location.X + groupBoxGeneralControls.Size.Width), 
+                groupBoxAdvancedControls.Location.Y);
+        }
         private void PopulateFmapPanel()
         {
+            if (lm.currentFmaps.Count == 0)
+            {
+                MessageBox.Show("Need to get feature maps before doing anything with them");
+                return;
+            }
             int numFmaps = lm.currentFmaps[comboBoxDims.SelectedIndex].Count;
 
             flowLayoutOutputFmap.Controls.Clear();
@@ -138,20 +155,33 @@ namespace GanStudio
                 int currentIndex = i;
                 showFmapButton.Click += (s, ev) =>
                 {
-                    fmapIndexBox.Text = string.Format("{0}", currentIndex);
-                    if (fmapsToViewTextbox.Text.Length > 0)
+                    string[] splitFmaps = fmapsToViewTextbox.Text.Split(',');
+                    bool parsed = int.TryParse(splitFmaps.Last(), out int lastFmap);
+                    if (parsed && lastFmap == currentIndex)
                     {
-                        fmapsToViewTextbox.Text += string.Format(",{0}", currentIndex);
+                        fmapsToViewTextbox.Text = String.Join(",", splitFmaps.Take(splitFmaps.Count() - 1).ToArray());
+                        _currentFmapToDraw = null;
+                        pictureBox1.Invalidate();
+                        pictureBox1.Refresh();
+                        DisplayImage(_currentImagePath);
                     }
                     else
                     {
-                        fmapsToViewTextbox.Text += string.Format("{0}", currentIndex);
+                        fmapIndexBox.Text = string.Format("{0}", currentIndex);
+                        if (fmapsToViewTextbox.Text.Length > 0)
+                        {
+                            fmapsToViewTextbox.Text += string.Format(",{0}", currentIndex);
+                        }
+                        else
+                        {
+                            fmapsToViewTextbox.Text += string.Format("{0}", currentIndex);
+                        }
+                        ShowImageAndSpatialSelections(lm.currentFmaps[comboBoxDims.SelectedIndex][currentIndex]);
                     }
-                    ShowImageAndSpatialSelections(lm.currentFmaps[comboBoxDims.SelectedIndex][currentIndex]);
                 };
                 fmapButtonList.Add(showFmapButton);
             }
-            if (checkBoxSortBySimilarity.Checked || checkBoxExclusiveSelection.Checked)
+            if (radioButtonSortBySimilarity.Checked)
             {
                 if (_fmapSelections.Count == 0 || 
                     _fmapSelections[fmapTabControl.SelectedIndex].Cast<float>().ToArray().GetLength(0) != 
@@ -162,29 +192,33 @@ namespace GanStudio
                 List<Tuple<float, int>> magnitudeToIndex = new List<Tuple<float, int>>();
                 for (int i = 0; i < numFmaps; i++)
                 {
-                    if (checkBoxExclusiveSelection.Checked)
-                    {
-                        magnitudeToIndex.Add(new Tuple<float, int>(SpatialSelectionDotProdExclusive(lm.currentFmaps[comboBoxDims.SelectedIndex][i]), i));
-                    }
-                    else
-                    {
-                        magnitudeToIndex.Add(new Tuple<float, int>(SpatialSelectionDotProd(lm.currentFmaps[comboBoxDims.SelectedIndex][i]), i));
-                    }
+                    //if (radioButtonExclusiveSelection.Checked)
+                    //{
+                    //    magnitudeToIndex.Add(new Tuple<float, int>(SpatialSelectionDotProdExclusive(lm.currentFmaps[comboBoxDims.SelectedIndex][i]), i));
+                    //}
+                    //else
+                    //{
+                    //    magnitudeToIndex.Add(new Tuple<float, int>(SpatialSelectionDotProd(lm.currentFmaps[comboBoxDims.SelectedIndex][i]), i));
+                    //}
+                    magnitudeToIndex.Add(new Tuple<float, int>(SpatialSelectionDotProd(lm.currentFmaps[comboBoxDims.SelectedIndex][i]), i));
                 }
                 magnitudeToIndex.Sort((t1, t2) => {
                     return t2.Item1.CompareTo(t1.Item1);
                 });
+
+                _fmapButtonsDisplayed = new List<int>();
                 foreach (Tuple<float, int> tuple in magnitudeToIndex)
                 {
                     flowLayoutOutputFmap.Controls.Add(fmapButtonList[tuple.Item2]);
+                    _fmapButtonsDisplayed.Add(tuple.Item2);
                 }
             }
-            else if (checkBoxSortByMagnitude.Checked)
+            else if (radioButtonSortByMagnitude.Checked)
             {
                 List<Tuple<float, int>> magnitudeToIndex = new List<Tuple<float, int>>();
                 for (int i = 0; i < numFmaps; i++)
                 {
-                    magnitudeToIndex.Add(new Tuple<float, int>(SpatialSelectionMagnitude(lm.currentFmaps[comboBoxDims.SelectedIndex][i]), i));
+                    magnitudeToIndex.Add(new Tuple<float, int>(SpatialSelectionManhattan(lm.currentFmaps[comboBoxDims.SelectedIndex][i]), i));
                 }
                 magnitudeToIndex.Sort((t1, t2) => {
                     return t2.Item1.CompareTo(t1.Item1);
@@ -229,13 +263,14 @@ namespace GanStudio
             //else
             //{
             samplePath = GenerateImage(newLatent, fname, LatentManipulator.SampleDirName);
-            if (checkBoxSortBySimilarity.Checked || checkBoxExclusiveSelection.Checked || checkBoxSortByMagnitude.Checked)
+            if (radioButtonSortBySimilarity.Checked || radioButtonSortByMagnitude.Checked)
             {
                 PopulateFmapPanel();
             }
             if (_fmapMults.Count > 0)
             {
                 _fmapMults[fmapTabControl.SelectedIndex] = spatialMultBar.Value;
+                _fmapMultsScaled[fmapTabControl.SelectedIndex] = MultBarValueToMultiplier(spatialMultBar.Value);
             }
             if (_showingSpatialMod)
             {
@@ -248,7 +283,7 @@ namespace GanStudio
             Image oldImage = pictureBox1.Image;
             try
             {
-                pictureBox1.Image = Image.FromFile(samplePath);
+                DisplayImage(samplePath);
 
             }
             catch (OutOfMemoryException)
@@ -257,8 +292,6 @@ namespace GanStudio
             }
             if (oldImage != null)
                 oldImage.Dispose();
-            _prevImagePath = _currentImagePath;
-            _currentImagePath = samplePath;
         }
         private bool PromptForImageToLoad(string dirName)
         {
@@ -462,12 +495,13 @@ namespace GanStudio
             TabPage currentPage = new TabPage();
             int pageCounter = 0;
             currentPage.Text = string.Format("Attributes_{0}", pageCounter);
+            currentPage.AutoScroll = true;
             mainTabControl.TabPages.Add(currentPage);
             foreach (string att in attributes)
             {
                 Label newLabel = new Label();
                 newLabel.Location = new System.Drawing.Point(txtBoxPosition, txtBoxPositionV);
-                int labelWidth = 65;
+                int labelWidth = 80;
                 newLabel.Size = new System.Drawing.Size(labelWidth, 25);
                 newLabel.Text = att;
                 _attLabels.Add(newLabel);
@@ -534,7 +568,7 @@ namespace GanStudio
                     trackBar.Value = 0;
                     trackBar.TickFrequency = 20;
                     trackBar.Name = att;
-                    int horizontalOffset = 65;
+                    int horizontalOffset = 80;
                     trackBar.Location = new Point(txtBoxPosition + horizontalOffset, txtBoxPositionV);
                     currentPage.Controls.Add(trackBar);
                     _attTrackbars.Add(trackBar);
@@ -545,7 +579,7 @@ namespace GanStudio
                 if (txtBoxPositionV > verticalCutoff)
                 {
                     txtBoxPositionV = 10;
-                    txtBoxPosition += 370;
+                    txtBoxPosition += 385;
                 }
                 if (txtBoxPosition > horizontalCutoff)
                 {
@@ -553,29 +587,104 @@ namespace GanStudio
                     txtBoxPosition = 10;
                     currentPage = new TabPage();
                     currentPage.Text = string.Format("Attributes_{0}", pageCounter);
+                    currentPage.AutoScroll = true;
                     mainTabControl.TabPages.Add(currentPage);
                 }
             }
         }
+        private string ShowModelSelectDialog(string[] graphFiles)
+        {
+
+            Form prompt = new Form();
+            prompt.Text = "Select Model";
+            prompt.AutoScroll = true;
+            FlowLayoutPanel selectGraphPanel = new FlowLayoutPanel();
+            selectGraphPanel.AutoSize = true;
+            //selectGraphPanel.Location = new Point(0, 20);
+            selectGraphPanel.FlowDirection = FlowDirection.TopDown;
+            string selectedGraph = "";
+            foreach (string graph in graphFiles)
+            {
+                RadioButton graphSelector = new RadioButton();
+                graphSelector.AutoSize = true;
+                graphSelector.Text = Path.GetFileName(graph);
+                graphSelector.Click += (s, ev) =>
+                {
+                    RadioButton rbSelected = selectGraphPanel.Controls
+                                 .OfType<RadioButton>()
+                                 .FirstOrDefault(r => r.Checked);
+                    selectedGraph = rbSelected.Text;
+                    prompt.Close();
+                };
+                selectGraphPanel.Controls.Add(graphSelector);
+            }
+
+
+            //Button selectButton = new Button() { Text = "Select", Width = 100 };
+            //selectButton.Click += (s, ev) =>
+            //{
+            //};
+            //prompt.Controls.Add(selectButton);
+            prompt.Controls.Add(selectGraphPanel);
+            prompt.ShowDialog();
+            return selectedGraph;
+        }
         private void Form1_Load(object sender, EventArgs el)
         {
-            MessageBox.Show("Some things to know: " +
+            MessageBox.Show("Disclaimers: " +
                 "\n 1. This tool has only been tested with .NET framework 4.7." +
                 "\n 2. It requires a processor with AVX enabled." +
-                "\n 3. It is full of bugs.");
-            lm = new LatentManipulator();
+                "\n 3. It is full of bugs." +
+                "\n 4. There is a small risk it may produce NSFW results." +
+                "\n 5. This program and its source are distributed under the Apache 2.0 License");
+            string[] graphFiles = System.IO.Directory.GetFiles(Directory.GetCurrentDirectory(), "*.pb");
+            string selectedGraph = "";
+            if (graphFiles.Length > 1)
+            {
+                selectedGraph = ShowModelSelectDialog(graphFiles);
+                if (selectedGraph == "")
+                {
+                    System.Environment.Exit(0);
+                }
+            }
+            else if (graphFiles.Length == 1)
+            {
+                selectedGraph = graphFiles[0];
+            }
+            else
+            {
+                MessageBox.Show("No graph (.pb) files found in " + Directory.GetCurrentDirectory());
+            }
+            lm = new LatentManipulator(selectedGraph);
+            _maxRes = lm._maxRes;
             Directory.CreateDirectory(LatentManipulator.FavoritesDirName);
             checkBoxDragSelection.Checked = true;
             interruptedDelegate = new InterruptApplication(InterruptedMethod);
             batchStartedDelegate = new BatchGenFormStarted(BatchGenFormStartedMethod);
             fmapsViewerStartedDelegate = new FmapViewerFormStarted(FmapViewerFormStartedMethod);
-            
-            if (!File.Exists(lm.AttributesCsvPath))
+
+            List<int[]> dims = GetFmapResolutions();
+            for (int i = 0; i < dims.Count; i++)
             {
-                throw new ArgumentException(string.Format("Initialization failed, Could not find {0} (working dir: {1})",
-                    lm.AttributesCsvPath,
-                    System.IO.Directory.GetCurrentDirectory()));
+                comboBoxDims.Items.Add(string.Format("{0}x{1}", dims[i][0], dims[i][1]));
             }
+            comboBoxDims.Text = (string.Format("{0}x{1}", dims[0][0], dims[0][1]));
+
+            for (int i = 0; i < dims.Count; i++)
+            {
+                comboBoxScriptDims.Items.Add(string.Format("{0}x{1}", dims[i][0], dims[i][1]));
+            }
+            comboBoxScriptDims.Items.Add("null");
+            comboBoxScriptDims.Text = (string.Format("{0}x{1}", dims[0][0], dims[0][1]));
+            //if (!File.Exists(lm.AttributesCsvPath))
+            //{
+            //    //throw new ArgumentException(string.Format("Initialization failed, Could not find {0} (working dir: {1})",
+            //    //    lm.AttributesCsvPath,
+            //    //    System.IO.Directory.GetCurrentDirectory()));
+            //    MessageBox.Show(string.Format("Could not find {0} (working dir: {1})",
+            //        lm.AttributesCsvPath,
+            //        System.IO.Directory.GetCurrentDirectory()));
+            //}
 
             if (Directory.Exists(Path.Combine(lm.DataDir, "saved_fmaps")))
             {
@@ -586,18 +695,21 @@ namespace GanStudio
             Directory.CreateDirectory(LatentManipulator.SampleDirName);
             if (lm.ReadAverageLatentFromCsv(lm.AverageLatentCsvPath) == -1)
             {
-                throw new Exception("Initialization failed, in ReadAverageLatentFromCsv");
+                //throw new Exception("Initialization failed, in ReadAverageLatentFromCsv");
+                MessageBox.Show(string.Format("Could not find {0}, disabling quality bar (working dir: {1})",
+                    lm.AverageLatentCsvPath,
+                    System.IO.Directory.GetCurrentDirectory()));
+                varianceBar.Value = varianceBar.Maximum;
+                varianceBar.Enabled = false;
             }
-            if (lm.ReadAttributesFromCsv(lm.AttributesCsvPath) == null)
-            {
-                throw new Exception("Initialization failed, in ReadAttributesFromCsv");
-            }
-            List<int[]> dims = GetFmapResolutions();
-            for (int i = 0; i < dims.Count; i++)
-            {
-                comboBoxDims.Items.Add(string.Format("{0}x{1}", dims[i][0], dims[i][1]));
-            }
-            comboBoxDims.Text = (string.Format("{0}x{1}", dims[0][0], dims[0][1]));
+            //if (lm.ReadAttributesFromCsv(lm.AttributesCsvPath) == null)
+            //{
+            //    //throw new Exception("Initialization failed, in ReadAttributesFromCsv");
+            //    MessageBox.Show(string.Format("Could not find {0} (working dir: {1})",
+            //        lm.AttributesCsvPath,
+            //        System.IO.Directory.GetCurrentDirectory()));
+            //}
+
 
             LoadAttributes();
             saveLocation.Text = Path.Combine(System.IO.Directory.GetCurrentDirectory(), LatentManipulator.SampleDirName);
@@ -812,7 +924,7 @@ namespace GanStudio
             _showingJustFavoriteAttributes = !_showingJustFavoriteAttributes;
             LoadAttributes();
         }
-        private Tuple<int, int> BatchGeneratePrompt(bool needsLatent = true)
+        private Tuple<int, int> BatchGeneratePrompt(bool needsLatent = false)
         {
             if (needsLatent && _currentLatent == null)
             {
@@ -885,7 +997,7 @@ namespace GanStudio
         private void StartGeneration()
         {
             this.Text = "Generating...";
-            DisableControls(this, 2);
+            DisableControls(groupBoxGeneralControls, 2);
         }
         void EnableControls(Control con, int currentDepth)
         {
@@ -904,7 +1016,7 @@ namespace GanStudio
         }
         private void FinishGeneration()
         {
-            EnableControls(this, 2);
+            EnableControls(groupBoxGeneralControls, 2);
             this.Text = defaultTitle;
         }
         private bool BatchGeneration(int batchSize, int threadCount, Action<int, string> CustomGenerateImage,
@@ -1076,20 +1188,20 @@ namespace GanStudio
                 {
                     return;
                 }
-                DisableControls(this, 2);
+                DisableControls(groupBoxGeneralControls, 2);
 
                 Image oldImage = pictureBox1.Image;
-                pictureBox1.Image = Image.FromFile(_prevImagePath);
+                DisplayImage(_prevImagePath);
                 if (oldImage != null)
                     oldImage.Dispose();
                 _showingOld = true;
             }
             else
             {
-                EnableControls(this, 2);
+                EnableControls(groupBoxGeneralControls, 2);
 
                 Image oldImage = pictureBox1.Image;
-                pictureBox1.Image = Image.FromFile(_currentImagePath);
+                DisplayImage(_currentImagePath);
                 if (oldImage != null)
                     oldImage.Dispose();
                 _showingOld = false;
@@ -1142,7 +1254,7 @@ namespace GanStudio
             {
                 return;
             }
-            DialogResult dr = MessageBox.Show("Slide past 0?", "Confirmation",
+            DialogResult dr = MessageBox.Show("Slide Past 0? (replace with slider)", "Confirmation",
                 MessageBoxButtons.YesNo);
             switch (dr)
             {
@@ -1245,63 +1357,23 @@ namespace GanStudio
             };
             BatchGeneration(batchSize, threadCount, CustomGenerateImage, fnameToLatent);
         }
-        private void CombinatoricToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            BatchFromAttributes(true);
-        }
-        private void SpectrumToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            Tuple<int, int> batchAndThreads = BatchGeneratePrompt();
-            if (batchAndThreads == null)
-            {
-                return;
-            }
-            int batchSize = batchAndThreads.Item1;
-            int threadCount = batchAndThreads.Item2;
-            if (batchSize <= 1)
-            {
-                MessageBox.Show("Need batch size of > 1 (just click Generate New for a single image)");
-                return;
-            }
-
-            float[] endLatent = ApplyTrackbarsToLatent(_currentLatent, -1.0f);
-            DialogResult dr = MessageBox.Show("Slide past 0?", "Confirmation",
-                MessageBoxButtons.YesNo);
-            switch (dr)
-            {
-                case DialogResult.No:
-                    endLatent = ApplyTrackbarsToLatent(_currentLatent, 0.0f);
-                    break;
-            }
-
-            float[] startLatent = ApplyTrackbarsToLatent(_currentLatent);
-
-            SortedDictionary<string, float[]> fnameToLatent = new SortedDictionary<string, float[]>();
-            void CustomGenerateImage(int i, string batchDir)
-            {
-                float factor = i * 1.0f / (batchSize - 1);
-                float[] newLatent = LatentManipulator.VectorCombine(startLatent, endLatent, factor, 1.0f - factor);
-                string sampleName = string.Format("{0}_{1}", i, GenerateSampleName());
-                GenerateImage(newLatent, sampleName, batchDir);
-                fnameToLatent.Add(sampleName, newLatent);
-            }
-            BatchGeneration(batchSize, threadCount, CustomGenerateImage, fnameToLatent);
-        }
-
-        private void SequentialToolStripMenuItem_Click(object sender, EventArgs e)
-        {
-            BatchFromAttributes(false);
-        }
         private List<int[]> GetFmapResolutions()
         {
-            int[] baseResolution = { 8, 4 };
-            int nLayers = 6;
             List<int[]> dims = new List<int[]>();
-            for (int i = 0; i < nLayers; i++)
+            foreach (Tuple<string, int[]> nameAndDims in lm._layersOut)
             {
-                dims.Add(new int[] { baseResolution[0] * Convert.ToInt32(Math.Pow(2, i)),
-                    baseResolution[1] * Convert.ToInt32(Math.Pow(2, i)) });
+                dims.Add(new int[] { nameAndDims.Item2[1], nameAndDims.Item2[2] });
             }
+            return dims;
+            //int[] baseResolution = { 8, 4 };
+            //int[] baseResolution = { 4, 4 };
+            //int nLayers = 6;
+            //List<int[]> dims = new List<int[]>();
+            //for (int i = 0; i < nLayers; i++)
+            //{
+            //    dims.Add(new int[] { baseResolution[0] * Convert.ToInt32(Math.Pow(2, i)),
+            //        baseResolution[1] * Convert.ToInt32(Math.Pow(2, i)) });
+            //}
 
 
             //lm.GetShapeForTensor("Res8/adaptive_instance_norm_1/add_1:0"))
@@ -1310,11 +1382,11 @@ namespace GanStudio
             //lm.GetShapeForTensor("Res64/adaptive_instance_norm_1/add_1:0"))
             //lm.GetShapeForTensor("Res128/adaptive_instance_norm_1/add_1:0"))
             //lm.GetShapeForTensor("Res256/adaptive_instance_norm_1/add_1:0"))
-            return dims;
+            //return dims;
         }
         private void SpatialMod_Click(object sender, EventArgs e)
         {
-            pictureBox1.Image = Image.FromFile(_currentImagePath);
+            DisplayImage(_currentImagePath);
             Refresh();
             _showingSpatialMod = !_showingSpatialMod;
             if (_showingSpatialMod)
@@ -1344,8 +1416,8 @@ namespace GanStudio
             }
 
             // Draw grid
-            int rectHeight = pictureBox.Height / fmap.GetLength(0);
-            int rectWidth = pictureBox.Width / fmap.GetLength(1);
+            int rectHeight = _maxRes[0] / fmap.GetLength(0);
+            int rectWidth = _maxRes[1] / fmap.GetLength(1);
             for (int row = 0; row < fmap.GetLength(0); row++)
             {
                 for (int column = 0; column < fmap.GetLength(1); column++)
@@ -1358,9 +1430,20 @@ namespace GanStudio
                         if (fmap[row, column] > 0)
                         {
                             Rectangle ee = new Rectangle(column * rectWidth, row * rectHeight, rectWidth, rectHeight);
-                            using (Pen pen = new Pen(Color.FromArgb(255 - colorMagnitude, 255, 255 - colorMagnitude), 16.0f * lineMagnitude / (float)Math.Pow(fmap.GetLength(1), 1.5)))
+                            if (checkBoxColorblindMode.Checked)
                             {
-                                g.DrawRectangle(pen, ee);
+                                using (Pen pen = new Pen(Color.FromArgb(255 - colorMagnitude, 255 - colorMagnitude, 255), 16.0f * lineMagnitude / (float)Math.Pow(fmap.GetLength(1), 1.5)))
+                                {
+                                    g.DrawRectangle(pen, ee);
+                                }
+                            }
+                            else
+                            {
+                                using (Pen pen = new Pen(Color.FromArgb(255 - colorMagnitude, 255, 255 - colorMagnitude), 16.0f * lineMagnitude / (float)Math.Pow(fmap.GetLength(1), 1.5)))
+                                {
+                                    g.DrawRectangle(pen, ee);
+                                }
+
                             }
                         }
                         else if (fmap[row, column] < 0)
@@ -1379,7 +1462,7 @@ namespace GanStudio
         {
             if (_currentImagePath != null)
             {
-                pictureBox1.Image = Image.FromFile(_currentImagePath);
+                DisplayImage(_currentImagePath);
                 pictureBox1.Invalidate();
                 pictureBox1.Refresh();
                 _currentFmapToDraw = fmap;
@@ -1388,7 +1471,7 @@ namespace GanStudio
         }
         private void SelectPoint(int[] point, MouseButtons button)
         {
-            if (button == MouseButtons.Left && Control.ModifierKeys != Keys.Shift)
+            if (button == MouseButtons.Left && Control.ModifierKeys != Keys.Control)
             {
                 if (checkBoxNoSelectionOverlap.Checked)
                 {
@@ -1494,6 +1577,7 @@ namespace GanStudio
                     {
                         result = new float[height, width, channels];
                     }
+                    float multScaled = MultBarValueToMultiplier(spatialMultBar.Value);
                     for (int i = 0; i < channels; i++)
                     {
                         for (int j = 0; j < height; j++)
@@ -1502,11 +1586,11 @@ namespace GanStudio
                             {
                                 if (tab == fmapTabControl.SelectedIndex && useCurrentTab)
                                 {
-                                    result[j, k, i] += _fmapSelections[tab][j, k] * _fmapMods[tab][i] * spatialMultBar.Value;
+                                    result[j, k, i] += _fmapSelections[tab][j, k] * _fmapMods[tab][i] * multScaled;
                                 }
                                 else
                                 {
-                                    result[j, k, i] += _fmapSelections[tab][j, k] * _fmapMods[tab][i] * _fmapMults[tab];
+                                    result[j, k, i] += _fmapSelections[tab][j, k] * _fmapMods[tab][i] * _fmapMultsScaled[tab];
                                 }
                             }
                         }
@@ -1553,44 +1637,44 @@ namespace GanStudio
             };
             BatchGeneration(batchSize, threadCount, CustomGenerateImage, fnameToLatent);
         }
-        private void SpectrumToolStripMenuItem1_Click(object sender, EventArgs e)
-        {
-            Tuple<int, int> batchAndThreads = BatchGeneratePrompt();
-            if (batchAndThreads == null)
-            {
-                return;
-            }
-            int batchSize = batchAndThreads.Item1;
-            int threadCount = batchAndThreads.Item2;
-            if (batchSize <= 1)
-            {
-                MessageBox.Show("Need batch size of > 1 (just click Generate New for a single image)");
-                return;
-            }
+        //private void SpectrumToolStripMenuItem1_Click(object sender, EventArgs e)
+        //{
+        //    Tuple<int, int> batchAndThreads = BatchGeneratePrompt();
+        //    if (batchAndThreads == null)
+        //    {
+        //        return;
+        //    }
+        //    int batchSize = batchAndThreads.Item1;
+        //    int threadCount = batchAndThreads.Item2;
+        //    if (batchSize <= 1)
+        //    {
+        //        MessageBox.Show("Need batch size of > 1 (just click Generate New for a single image)");
+        //        return;
+        //    }
 
-            float startValue = spatialMultBar.Value;
-            float endValue = -1 * spatialMultBar.Value;
-            DialogResult dr = MessageBox.Show("Slide past 0?", "Confirmation",
-                MessageBoxButtons.YesNo);
-            switch (dr)
-            {
-                case DialogResult.No:
-                    endValue = 0.0f;
-                    break;
-            }
+        //    float startValue = spatialMultBar.Value;
+        //    float endValue = -1 * spatialMultBar.Value;
+        //    DialogResult dr = MessageBox.Show("Slide Past 0? (replace with slider)", "Confirmation",
+        //        MessageBoxButtons.YesNo);
+        //    switch (dr)
+        //    {
+        //        case DialogResult.No:
+        //            endValue = 0.0f;
+        //            break;
+        //    }
 
 
-            SortedDictionary<string, float[]> fnameToLatent = new SortedDictionary<string, float[]>();
-            void CustomGenerateImage(int i, string batchDir)
-            {
-                float factor = i * 1.0f / (batchSize - 1);
-                float newValue = startValue * (1 - factor) + endValue * factor;
-                spatialMultBar.Value = (int)newValue;
-                string sampleName = string.Format("{0}_{1}", i, GenerateSampleName());
-                GenerateImage(ApplyTrackbarsToLatent(_currentLatent), sampleName, batchDir);
-            }
-            BatchGeneration(batchSize, threadCount, CustomGenerateImage, fnameToLatent);
-        }
+        //    SortedDictionary<string, float[]> fnameToLatent = new SortedDictionary<string, float[]>();
+        //    void CustomGenerateImage(int i, string batchDir)
+        //    {
+        //        float factor = i * 1.0f / (batchSize - 1);
+        //        float newValue = startValue * (1 - factor) + endValue * factor;
+        //        spatialMultBar.Value = (int)newValue;
+        //        string sampleName = string.Format("{0}_{1}", i, GenerateSampleName());
+        //        GenerateImage(ApplyTrackbarsToLatent(_currentLatent), sampleName, batchDir);
+        //    }
+        //    BatchGeneration(batchSize, threadCount, CustomGenerateImage, fnameToLatent);
+        //}
         private void RegenerateImagesFromCSVToolStripMenuItem_Click(object sender, EventArgs e)
         {
             SortedDictionary<string, float[]> fnameToLatent = lm.GetNameToLatentMap();
@@ -1761,6 +1845,7 @@ namespace GanStudio
         private void AddTab_Click(object sender, EventArgs e)
         {
             _fmapMults.Add(spatialMultBar.Value);
+            _fmapMultsScaled.Add(MultBarValueToMultiplier(spatialMultBar.Value));
             _fmapScripts.Add("");
             _fmapGroupList.Add(string.Format("{0}", fmapTabControl.TabPages.Count));
             string[] selectedItem = comboBoxDims.Items[comboBoxDims.SelectedIndex].ToString().Split('x');
@@ -1779,9 +1864,61 @@ namespace GanStudio
             _fmapMods.RemoveAt(fmapTabControl.SelectedIndex);
             _fmapScripts.RemoveAt(fmapTabControl.SelectedIndex);
             _fmapSelections.RemoveAt(fmapTabControl.SelectedIndex);
+            _fmapMultsScaled.RemoveAt(fmapTabControl.SelectedIndex);
             _fmapMults.RemoveAt(fmapTabControl.SelectedIndex);
             _fmapGroupList.RemoveAt(fmapTabControl.SelectedIndex);
             fmapTabControl.TabPages.Remove(fmapTabControl.SelectedTab);
+        }
+        private void ScriptTextToUIElements(string scriptText)
+        {
+            int toSkip = 2;
+            if (scriptText.Contains("non_modifying"))
+            {
+                checkBoxScriptNonModifying.Checked = true;
+                toSkip++;
+            }
+            else
+            {
+                checkBoxScriptNonModifying.Checked = false;
+            }
+            if (scriptText.Contains("supply_image_parameter"))
+            {
+                checkBoxScriptImagePathAsParameter.Checked = true;
+                toSkip++;
+            }
+            else
+            {
+                checkBoxScriptImagePathAsParameter.Checked = false;
+            }
+            if (scriptText == "")
+            {
+                comboBoxScriptDims.SelectedIndex = comboBoxDims.Items.Count;
+                textBoxScriptFmaps.Text = "";
+                scriptPathBox.Text = "";
+                return;
+            }
+            string[] scriptAndFmaps = scriptText.Split(',');
+            if (!int.TryParse(scriptAndFmaps[1], out int selectedLayer))
+            {
+                return;
+            }
+            comboBoxScriptDims.SelectedIndex = Math.Min(selectedLayer, comboBoxScriptDims.Items.Count-1);
+            textBoxScriptFmaps.Text = String.Join(",", scriptAndFmaps.Skip(toSkip).ToArray());
+            scriptPathBox.Text = scriptAndFmaps[0];
+        }
+        private string UIElementsToScriptText()
+        {
+            string scriptText = string.Format("{0},{1}", scriptPathBox.Text, comboBoxScriptDims.SelectedIndex);
+            if (checkBoxScriptNonModifying.Checked)
+            {
+                scriptText += ",non_modifying";
+            }
+            if (checkBoxScriptNonModifying.Checked)
+            {
+                scriptText += ",supply_image_parameter";
+            }
+            scriptText += "," + textBoxScriptFmaps.Text;
+            return scriptText;
         }
         private void TabControl1_SelectedIndexChanged(object sender, EventArgs e)
         {
@@ -1796,8 +1933,8 @@ namespace GanStudio
             if (_fmapMults.Count > 0)
             {
                 spatialMultBar.Value = _fmapMults[fmapTabControl.SelectedIndex];
-                scriptPathBox.Text = _fmapScripts[fmapTabControl.SelectedIndex];
-                groupTextBox.Text = _fmapGroupList[fmapTabControl.SelectedIndex];
+                ScriptTextToUIElements(_fmapScripts[fmapTabControl.SelectedIndex]);
+                //groupTextBox.Text = _fmapGroupList[fmapTabControl.SelectedIndex];
                 ShowImageAndSpatialSelections(_fmapSelections[fmapTabControl.SelectedIndex]);
             }
         }
@@ -1813,8 +1950,22 @@ namespace GanStudio
         }
         private void SaveTabs_Click(object sender, EventArgs e)
         {
-            string inputName = Interaction.InputBox("Save name",
+            string inputName = Interaction.InputBox("Save name, \"basic.bin\" to auto-load on start",
                 "Save name prompt", string.Format("{0}_tabdata.bin", _currentImageName), -1, -1);
+            if (inputName == "")
+            {
+                return;
+            }
+            else if (inputName == "basic.bin")
+            {
+                string targetDir = Path.Combine(lm.DataDir, "saved_fmaps");
+                if (!Directory.Exists(targetDir))
+                {
+                    Directory.CreateDirectory(targetDir);
+                }
+                inputName = Path.Combine(targetDir, inputName);
+                
+            }
             List<string> tabNames = new List<string>();
             foreach (TabPage t in fmapTabControl.TabPages)
             {
@@ -1836,6 +1987,7 @@ namespace GanStudio
                 BinaryFormatter b = new BinaryFormatter();
                 FmapData newData = (FmapData)b.Deserialize(fin);
                 _fmapMults = _fmapMults.Concat(newData.Mults).ToList();
+                _fmapMultsScaled = _fmapMultsScaled.Concat(from mult in newData.Mults select MultBarValueToMultiplier(mult)).ToList();
                 _fmapSelections = _fmapSelections.Concat(newData.Selections).ToList();
                 if (newData.ScriptPaths == null)
                 {
@@ -1920,7 +2072,7 @@ namespace GanStudio
         }
         private void GroupTextBox_TextChanged(object sender, EventArgs e)
         {
-            _fmapGroupList[fmapTabControl.SelectedIndex] = groupTextBox.Text;
+            //_fmapGroupList[fmapTabControl.SelectedIndex] = groupTextBox.Text;
         }
         private List<int> GetActiveTabs()
         {
@@ -1935,12 +2087,26 @@ namespace GanStudio
             }
             return activeTabs;
         }
+        private List<int> GetNonModifyingTabs()
+        {
+            List<int> nonModifyingTabs = new List<int>();
+            for (int i = 0; i < fmapTabControl.TabPages.Count; i++)
+            {
+                if (!_fmapScripts[i].Contains("non_modifying"))
+                {
+                    continue;
+                }
+                nonModifyingTabs.Add(i);
+            }
+            return nonModifyingTabs;
+        }
         private List<int> GetScriptTabs()
         {
             List<int> scriptTabs = new List<int>();
             for (int i = 0; i < fmapTabControl.TabPages.Count; i++)
             {
-                if (_fmapScripts[i] == "" || (_fmapMods[i].All(m => m == 0) || _fmapMults[i] == 0.0f))
+                if (_fmapScripts[i] == "" || (!radioButtonJustRunScript.Checked &&
+                    _fmapMods[i].All(m => m == 0)) || _fmapMults[i] == 0.0f)
                 {
                     continue;
                 }
@@ -1962,30 +2128,30 @@ namespace GanStudio
         //        combined_list = combined_list_new
         //    else:
         //        combined_list = [[v] for v in lst]
-        private List<List<int>> BuildFmapCombinations(List<List<int>> multsForTab)
+        private List<List<float>> BuildFmapCombinations(List<List<float>> multsForTab)
         {
-            List<List<int>> combinedList = new List<List<int>>();
-            foreach (List<int> mults in multsForTab)
+            List<List<float>> combinedList = new List<List<float>>();
+            foreach (List<float> mults in multsForTab)
             {
                 if (combinedList.Count != 0)
                 {
-                    List<List<int>> newList = new List<List<int>>();
-                    foreach (int mult in mults)
+                    List<List<float>> newList = new List<List<float>>();
+                    foreach (float mult in mults)
                     {
-                        foreach (List<int> subList in combinedList)
+                        foreach (List<float> subList in combinedList)
                         {
-                            List<int> clonedSubList = new List<int>(subList);
+                            List<float> clonedSubList = new List<float>(subList);
                             clonedSubList.Add(mult);
                             newList.Add(clonedSubList);
                         }
                     }
-                    combinedList = new List<List<int>>(newList);
+                    combinedList = new List<List<float>>(newList);
                 }
                 else
                 {
-                    foreach (int mult in mults)
+                    foreach (float mult in mults)
                     {
-                        combinedList.Add(new List<int>() { mult });
+                        combinedList.Add(new List<float>() { mult });
                     }
                 }
             }
@@ -1994,8 +2160,8 @@ namespace GanStudio
         private void CombinatoricToolStripMenuItem1_Click(object sender, EventArgs e)
         {
             List<int> activeTabs = GetActiveTabs();
-            List<List<int>> multsForTabs = new List<List<int>>();
-            List<List<int>> counterForTabs = new List<List<int>>();
+            List<List<float>> multsForTabs = new List<List<float>>();
+            List<List<float>> counterForTabs = new List<List<float>>();
             foreach (int tabIndex in activeTabs)
             {
                 string inputBatch = Interaction.InputBox(string.Format("Images to generate for {0}", fmapTabControl.TabPages[tabIndex].Text),
@@ -2007,18 +2173,25 @@ namespace GanStudio
                 }
                 if (batchSize != 0)
                 {
-                    List<int> mults = new List<int>();
-                    List<int> counters = new List<int>();
-                    int startValue = -1 * _fmapMults[tabIndex];
-                    int endValue = _fmapMults[tabIndex];
-                    DialogResult dr = MessageBox.Show("Slide past 0?", "Confirmation",
-                        MessageBoxButtons.YesNo);
-                    switch (dr)
+                    List<float> mults = new List<float>();
+                    List<float> counters = new List<float>();
+                    //float startValue = -1 * _fmapMultsScaled[tabIndex];
+                    float endValue = _fmapMultsScaled[tabIndex];
+                    //DialogResult dr = MessageBox.Show("Slide Past 0? (replace with slider)", "Confirmation",
+                    //    MessageBoxButtons.YesNo);
+                    string startValueStr = Interaction.InputBox("Start Point", "Slide Start Point", string.Format("{0}", -1 * _fmapMultsScaled[tabIndex]), -1, -1);
+                    //switch (dr)
+                    //{
+                    //    case DialogResult.No:
+                    //        startValue = 0;
+                    //        break;
+                    //}
+                    if (!float.TryParse(startValueStr, out float startValue))
                     {
-                        case DialogResult.No:
-                            startValue = 0;
-                            break;
+                        MessageBox.Show(string.Format("{0} could not be parsed", startValueStr));
+                        return;
                     }
+                    
                     for(int i = 0; i <= batchSize-1; i++)
                     {
                         mults.Add(startValue + i * (endValue-startValue) / (batchSize-1));
@@ -2028,22 +2201,22 @@ namespace GanStudio
                     counterForTabs.Add(counters);
                 }
             }
-            List<List<int>> combinatoricMults = BuildFmapCombinations(multsForTabs);
-            List<List<int>> combinatoricCounters = BuildFmapCombinations(counterForTabs);
+            List<List<float>> combinatoricMults = BuildFmapCombinations(multsForTabs);
+            List<List<float>> combinatoricCounters = BuildFmapCombinations(counterForTabs);
 
             SortedDictionary<string, float[]> fnameToLatent = new SortedDictionary<string, float[]>();
             void CustomGenerateImage(int i, string batchDir)
             {
-                List<int> multsForTab = new List<int>(_fmapMults);
+                List<float> multsForTab = new List<float>(_fmapMultsScaled);
                 int tabIndex = 0;
                 foreach (int tab in activeTabs)
                 {
                     multsForTab[tab] = combinatoricMults[i][tabIndex];
                     tabIndex++;
                 }
-                List<int> countersForTab = combinatoricCounters[i];
-                List<int> fmapMultsTmp = _fmapMults;
-                _fmapMults = multsForTab;
+                List<float> countersForTab = combinatoricCounters[i];
+                List<float> fmapMultsTmp = _fmapMultsScaled;
+                _fmapMultsScaled = multsForTab;
                 string fname = "";
                 tabIndex = 0;
                 foreach (int tab in activeTabs)
@@ -2053,7 +2226,7 @@ namespace GanStudio
                 }
                 string sampleName = string.Format("{0}_{1}", fname, GenerateSampleName());
                 GenerateImage(ApplyTrackbarsToLatent(_currentLatent), sampleName, batchDir, fmapModsUseCurrentTab: false);
-                _fmapMults = fmapMultsTmp;
+                _fmapMultsScaled = fmapMultsTmp;
             }
             BatchGeneration(combinatoricMults.Count, 1, CustomGenerateImage, fnameToLatent);
         }
@@ -2063,24 +2236,24 @@ namespace GanStudio
             float[] selectionsFlattened = _fmapSelections[fmapTabControl.SelectedIndex].Cast<float>().ToArray();
             return fmapFlattened.Select((x, index) => x * selectionsFlattened[index]).Sum();
         }
-        private float SpatialSelectionDotProdExclusive(float[,] fmap)
-        {
-            float[] fmapFlattened = fmap.Cast<float>().ToArray();
-            float[] selectionsFlattened = _fmapSelections[fmapTabControl.SelectedIndex].Cast<float>().ToArray();
-            return fmapFlattened.Select((x, index) =>
-            {
-                if (selectionsFlattened[index] == 0)
-                {
-                    return -Math.Abs(x);
-                }
-                else
-                {
-                    return x * selectionsFlattened[index] * fmapFlattened.GetLength(0);
-                }
-            }
-            ).Sum();
-        }
-        private float SpatialSelectionMagnitude(float[,] fmap)
+        //private float SpatialSelectionDotProdExclusive(float[,] fmap)
+        //{
+        //    float[] fmapFlattened = fmap.Cast<float>().ToArray();
+        //    float[] selectionsFlattened = _fmapSelections[fmapTabControl.SelectedIndex].Cast<float>().ToArray();
+        //    return fmapFlattened.Select((x, index) =>
+        //        {
+        //            if (selectionsFlattened[index] == 0)
+        //            {
+        //                return -Math.Abs(x);
+        //            }
+        //            else
+        //            {
+        //                return x * selectionsFlattened[index] * fmapFlattened.GetLength(0);
+        //            }
+        //        }
+        //        ).Sum();
+        //}
+        private float SpatialSelectionManhattan(float[,] fmap)
         {
             float[] fmapFlattened = fmap.Cast<float>().ToArray();
             return fmapFlattened.Select((x, index) => Math.Abs(x)).Sum();
@@ -2088,55 +2261,58 @@ namespace GanStudio
         public const int FMAPS_PER_PAGE = 128;
         private void AddSelectorPages()
         {
-            foreach(TabPage page in tabControlFmapChannels.TabPages)
+            //foreach(TabPage page in tabControlFmapChannels.TabPages)
+            //{
+            //    if (page.Text.Contains("Input"))
+            //    {
+            //        tabControlFmapChannels.TabPages.Remove(page);
+            //    }
+            //}
+            //int nonZeroMods = 0;
+            //foreach (float mod in _fmapMods[fmapTabControl.SelectedIndex])
+            //{
+            //    if (mod != 0.0f)
+            //    {
+            //        nonZeroMods++;
+            //    }
+            //}
+            //TabPage newPage = new TabPage();
+            //tabControlFmapChannels.Add(newPage);
+            //tabPageFmapInput.
+            //FlowLayoutPanel panel = new FlowLayoutPanel();
+            //panel.Height = tabPageFmapInput.Height;
+            //panel.Width = tabPageFmapInput.Width - 25;
+            //newPage.Controls.Add(panel);
+            //panel.AutoScroll = true;
+            //newPage.Text = string.Format("Input {0}-{1}", 0, _fmapMods[fmapTabControl.SelectedIndex].GetLength(0));
+            flowLayoutInputFmap.Controls.Clear();
+            for (int i = 0; i < _fmapMods[fmapTabControl.SelectedIndex].GetLength(0); i++)
             {
-                if (page.Text.Contains("Input"))
+                //for (int j = i * FMAPS_PER_PAGE; j < (i+1)* FMAPS_PER_PAGE; j++)
+                //{
+                if (checkBoxViewNonZeroOnly.Checked && _fmapMods[fmapTabControl.SelectedIndex][i] == 0.0f)
                 {
-                    tabControlFmapChannels.TabPages.Remove(page);
+                    continue;
                 }
-            }
-            int nonZeroMods = 0;
-            foreach (float mod in _fmapMods[fmapTabControl.SelectedIndex])
-            {
-                if (mod != 0.0f)
+                Label newLabel = new Label();
+                newLabel.Size = new System.Drawing.Size(25, 20);
+                newLabel.Text = string.Format("{0}", i);
+                flowLayoutInputFmap.Controls.Add(newLabel);
+                TextBox newBox = new TextBox();
+                newBox.Size = new System.Drawing.Size(40, 20);
+                newBox.Text = string.Format("{0}", _fmapMods[fmapTabControl.SelectedIndex][i]);
+                int newBoxIndex = i;
+                newBox.TextChanged += (s, e) =>
                 {
-                    nonZeroMods++;
-                }
-            }
-            for (int i = 0; i < _fmapMods[fmapTabControl.SelectedIndex].GetLength(0) / FMAPS_PER_PAGE; i++)
-            {
-                TabPage newPage = new TabPage();
-                tabControlFmapChannels.TabPages.Add(newPage);
-                FlowLayoutPanel panel = new FlowLayoutPanel();
-                panel.Height = newPage.Height;
-                panel.Width = newPage.Width;
-                newPage.Controls.Add(panel);
-                for (int j = i * FMAPS_PER_PAGE; j < (i+1)* FMAPS_PER_PAGE; j++)
-                {
-                    if (checkBoxViewNonZeroOnly.Checked && _fmapMods[fmapTabControl.SelectedIndex][j] == 0.0f)
+                    float val;
+                    if (!Single.TryParse(newBox.Text, out val))
                     {
-                        continue;
+                        val = 0.0f;
                     }
-                    Label newLabel = new Label();
-                    newLabel.Size = new System.Drawing.Size(25, 20);
-                    newLabel.Text = string.Format("{0}", j);
-                    panel.Controls.Add(newLabel);
-                    TextBox newBox = new TextBox();
-                    newBox.Size = new System.Drawing.Size(40, 20);
-                    newBox.Text = string.Format("{0}", _fmapMods[fmapTabControl.SelectedIndex][j]);
-                    int newBoxIndex = j;
-                    newBox.TextChanged += (s, e) =>
-                    {
-                        float val;
-                        if (!Single.TryParse(newBox.Text, out val))
-                        {
-                            val = 0.0f;
-                        }
-                        _fmapMods[fmapTabControl.SelectedIndex][newBoxIndex] = val;
-                    };
-                    panel.Controls.Add(newBox);
-                }
-                newPage.Text = string.Format("Input {0}-{1}", i * FMAPS_PER_PAGE, (i + 1) * FMAPS_PER_PAGE);
+                    _fmapMods[fmapTabControl.SelectedIndex][newBoxIndex] = val;
+                };
+                flowLayoutInputFmap.Controls.Add(newBox);
+                //}
             }
             //TabPage newPage = new TabPage();
         }
@@ -2213,7 +2389,7 @@ namespace GanStudio
         }
         private FmapViewer StartViewerForm()
         {
-            FmapViewer viewerForm = new FmapViewer(this);
+            FmapViewer viewerForm = new FmapViewer(this, checkBoxColorblindMode.Checked);
             Thread creationThread = new Thread(() => viewerForm.ShowDialog());
             creationThread.Start();
 
@@ -2231,6 +2407,16 @@ namespace GanStudio
         }
         private void ViewMultipleMaps_Click(object sender, EventArgs e)
         {
+            if (fmapsToViewTextbox.Text == "")
+            {
+                MessageBox.Show("No feature maps selected to view");
+                return;
+            }
+            if (lm.currentFmaps.Count == 0)
+            {
+                MessageBox.Show("No feature maps available, try generating an image with 'Fmaps To Get' not set to None");
+                return;
+            }
             FmapViewer viewerForm = StartViewerForm();
 
             List<float[,]> candidateFmaps;
@@ -2240,11 +2426,18 @@ namespace GanStudio
             }
             else
             {
+                if (comboBoxDims.SelectedIndex > lm.currentFmaps.Count)
+                {
+                    return;
+                }
                 candidateFmaps = lm.currentFmaps[comboBoxDims.SelectedIndex];
             }
-            foreach (Tuple<int, float[,], float> fmap in ParseSelectedFmaps(fmapsToViewTextbox.Text, candidateFmaps))
+            if (candidateFmaps != null)
             {
-                viewerForm.Invoke((Action)(() => viewerForm.addFmapDelegate(_currentImagePath, fmap.Item2, fmap.Item1)));
+                foreach (Tuple<int, float[,], float> fmap in ParseSelectedFmaps(fmapsToViewTextbox.Text, candidateFmaps))
+                {
+                    viewerForm.Invoke((Action)(() => viewerForm.addFmapDelegate(_currentImagePath, fmap.Item2, fmap.Item1)));
+                }
             }
         }
         private void ResetAverageButton_Click(object sender, EventArgs e)
@@ -2253,23 +2446,23 @@ namespace GanStudio
         }
         private void ViewHistoryButton_Click(object sender, EventArgs e)
         {
+            if (lm.imageAndFmapsRecord.Count == 0)
+            {
+                MessageBox.Show("No records, did you record with Fmaps To Get -> Current Tab set?");
+                return;
+            }
             FmapViewer viewerForm = StartViewerForm();
             foreach (Tuple<string, List<float[,]>> imageAndFmaps in lm.imageAndFmapsRecord)
             {
-                if (int.TryParse(fmapsToViewTextbox.Text.Split(',')[0], out int fmap))
+                int fmap = 0;
+                if (int.TryParse(fmapsToViewTextbox.Text.Split(',')[0], out fmap) || imageAndFmaps.Item2.Count == 1)
                 {
-                    viewerForm.Invoke((Action)(() => viewerForm.addFmapDelegate(imageAndFmaps.Item1, imageAndFmaps.Item2[fmap], fmap)));
+                    if (imageAndFmaps.Item2.Count > fmap)
+                    {
+                        viewerForm.Invoke((Action)(() => viewerForm.addFmapDelegate(imageAndFmaps.Item1, imageAndFmaps.Item2[fmap], fmap)));
+                    }
                 }
             }
-        }
-        private void DelLastButton_Click(object sender, EventArgs e)
-        {
-            string[] splitFmaps = fmapsToViewTextbox.Text.Split(',');
-            fmapsToViewTextbox.Text = String.Join(",", splitFmaps.Take(splitFmaps.Count() - 1).ToArray());
-        }
-        private void DelFirstButton_Click(object sender, EventArgs e)
-        {
-            fmapsToViewTextbox.Text = String.Join(",", fmapsToViewTextbox.Text.Split(',').Skip(1).ToArray());
         }
         private float[,] ReadSpatialMap(string path)
         {
@@ -2301,6 +2494,10 @@ namespace GanStudio
             ProcessStartInfo start = new ProcessStartInfo();
             string pythonPath = Environment.GetEnvironmentVariable("PYTHONPATH");
             string[] scriptAndFmaps = script.Split(',');
+            if (scriptAndFmaps[0] == "")
+            {
+                return;
+            }
             if (!int.TryParse(scriptAndFmaps[1], out int selectedLayer))
             {
                 return;
@@ -2309,15 +2506,29 @@ namespace GanStudio
             {
                 return;
             }
-            start.FileName = "python.exe";
+            start.FileName = "pythonw.exe";
+            string csvFmaps = String.Join(",", scriptAndFmaps.Skip(2).ToArray());
             string dirName = WriteFmaps(ParseSelectedFmaps(
-                String.Join(",", scriptAndFmaps.Skip(2).ToArray()), 
+                csvFmaps, 
                 lm.currentFmaps[selectedLayer]));
-            start.Arguments = string.Format("{0} {1}", Path.Combine(LatentManipulator.ScriptsDirName, scriptAndFmaps[0]), dirName);
+            string imagePathArg = "";
+            if (script.Contains("supply_image_parameter"))
+            {
+                imagePathArg = string.Format(" --image_path={0}", _currentImagePath);
+            }
+            int currentLayer = (int)Math.Log(_fmapSelections[index].GetLength(1), 2) - 2;
+            string resizeArg = "";
+            if (selectedLayer != currentLayer)
+            {
+                resizeArg = string.Format(" --resize_factor={0}", (float)Math.Pow(2, currentLayer) / (float)Math.Pow(2, selectedLayer));
+            }
+            start.Arguments = string.Format("{0} {1}", Path.Combine(LatentManipulator.ScriptsDirName, scriptAndFmaps[0]), dirName) + resizeArg + imagePathArg;
             start.UseShellExecute = false;
-            start.RedirectStandardOutput = true;
+            start.RedirectStandardError = true;
             //int layerIndex = (int)Math.Log(_fmapSelections[index].GetLength(1), 2) - 2;
             // Right now only get fmaps for single layer
+            scriptLabel.Text = "Script Running";
+            scriptLabel.Refresh();
             using (Process process = Process.Start(start))
             {
                 //using (StreamReader reader = process.StandardOutput)
@@ -2327,17 +2538,25 @@ namespace GanStudio
                 process.WaitForExit();
                 if (process.ExitCode != 0)
                 {
-                    MessageBox.Show(string.Format("Script failed with exit code {0}", process.ExitCode));
+                    MessageBox.Show(process.StandardError.ReadToEnd());
+                    scriptLabel.Text = string.Format("Script failed with exit code {0}", process.ExitCode);
                 }
                 else
                 {
-                    string spatialMapPath = Path.Combine(dirName, "spatial_map.csv");
-                    if (File.Exists(spatialMapPath))
+                    scriptLabel.Text = "Done";
+                    scriptLabel.Refresh();
+                    string spatialMapPathMod = Path.Combine(dirName, "spatial_map.csv");
+                    if (File.Exists(spatialMapPathMod))
                     {
-                        float[,] spatialMap = ReadSpatialMap(spatialMapPath);
+                        float[,] spatialMap = ReadSpatialMap(spatialMapPathMod);
                         if (spatialMap != null)
                         {
                             _fmapSelections[index] = spatialMap;
+                            if (checkBoxRecordFmaps.Checked)
+                            {
+                                // Memory hog
+                                lm.imageAndFmapsRecord.Add(new Tuple<string, List<float[,]>>(_currentImagePath, new List<float[,]>() { spatialMap }));
+                            }
                         }
                     }
                 }
@@ -2375,11 +2594,7 @@ namespace GanStudio
         }
         private void ScriptPathBox_TextChanged(object sender, EventArgs e)
         {
-            if (fmapTabControl.SelectedIndex != -1)
-            {
-                _fmapScripts[fmapTabControl.SelectedIndex] = scriptPathBox.Text;
-            }
-            
+            RecordScriptParameters();
         }
         private void RunScriptButton_Click(object sender, EventArgs e)
         {
@@ -2394,15 +2609,18 @@ namespace GanStudio
                 outLayer = comboBoxDims.SelectedIndex;
             }
             List<float[,,]> fmapMods = null;
-            if (!checkBoxAutoRunScript.Checked)
+            //  _fmapMultsScaled.Count != 0 currently a hack to prevent modification when we're running a non-modifying script
+            if (radioButtonNoScriptRun.Checked && _fmapMultsScaled.Count != 0)
             {
                 fmapMods = SpatialMapToFmaps(useCurrentTab: fmapModsUseCurrentTab);
             }
             string path = lm.GenerateImage(latent, fname, dir, fmapMods: fmapMods,
-                outLayer: outLayer, outAllLayers: checkBoxAutoRunScript.Checked || radioButtonAllFmaps.Checked,
+                outLayer: outLayer, outAllLayers: radioButtonSetSpatialScript.Checked || radioButtonAllFmaps.Checked,
                 doRecordFmaps: checkBoxRecordFmaps.Checked);
-
-            if (checkBoxAutoRunScript.Checked)
+            _currentImageName = Path.GetFileName(path);
+            _prevImagePath = _currentImagePath;
+            _currentImagePath = path;
+            if (!radioButtonNoScriptRun.Checked && _fmapMultsScaled.Count != 0)
             {
                 if (fmapTabControl.TabCount > 0)
                 {
@@ -2412,11 +2630,161 @@ namespace GanStudio
                         RunFmapScript(_fmapScripts[tab], tab);
                     }
                 }
-                path = lm.GenerateImage(latent, fname, dir, 
-                    fmapMods: SpatialMapToFmaps(useCurrentTab: fmapModsUseCurrentTab),
-                    outLayer: outLayer, doRecordFmaps: checkBoxRecordFmaps.Checked);
+                if (radioButtonSetSpatialScript.Checked)
+                {
+                    path = lm.GenerateImage(latent, fname, dir,
+                        fmapMods: SpatialMapToFmaps(useCurrentTab: fmapModsUseCurrentTab),
+                        outLayer: outLayer, doRecordFmaps: checkBoxRecordFmaps.Checked);
+                    _currentImagePath = path;
+                }
             }
             return path;
+        }
+
+        private void ToolStripApplyFmapCombinatoric_Click(object sender, EventArgs e)
+        {
+
+            // Ensure the files that map file names to latents exist
+            if (!File.Exists(lm.LatentCsvPath) && !File.Exists(lm.FavoritesLatentPath))
+            {
+                MessageBox.Show(string.Format("Could not find {0} or {1}",
+                    lm.LatentCsvPath, lm.FavoritesLatentPath));
+                return;
+            }
+            using (var fbd = new FolderBrowserDialog())
+            {
+                fbd.SelectedPath = Path.Combine(Directory.GetCurrentDirectory(), LatentManipulator.SampleDirName);
+                DialogResult result = fbd.ShowDialog();
+
+                List<float[]> oldLatents = new List<float[]>();
+                SortedDictionary<string, float[]> fnameToLatent = lm.GetNameToLatentMap();
+                if (result == DialogResult.OK && !string.IsNullOrWhiteSpace(fbd.SelectedPath))
+                {
+                    string[] paths = Directory.GetFiles(fbd.SelectedPath);
+                    foreach (string path in paths)
+                    {
+                        string fileName = Path.GetFileName(path);
+                        int missing = 0;
+
+                        float[] latent = lm.ExtractLatentFromImage(path);
+                        if (latent != null)
+                        {
+                            oldLatents.Add(latent);
+                        }
+                        else
+                        {
+                            if (fnameToLatent.ContainsKey(fileName))
+                            {
+                                oldLatents.Add(fnameToLatent[fileName]);
+                            }
+                            else
+                            {
+                                missing++;
+                            }
+                        }
+                    }
+                    if (oldLatents.Count != paths.Length)
+                    {
+                        System.Windows.Forms.MessageBox.Show(string.Format("Updating {0} of {1} files ", oldLatents.Count, paths.Length), "Update");
+                    }
+                }
+                else
+                {
+                    return;
+                }
+                CombinatoricFmapGeneration(oldLatents, includeUniqueness: false);
+            }
+        }
+        private void CombinatoricFmapGeneration(List<float[]> intermediates, bool includeUniqueness=true)
+        {
+            List<int> activeTabs = GetActiveTabs();
+            List<int> nonModifyingTabs = GetNonModifyingTabs();
+            List<List<float>> multsForTabs = new List<List<float>>();
+            List<List<float>> counterForTabs = new List<List<float>>();
+            foreach (int tabIndex in activeTabs)
+            {
+                string inputBatch = Interaction.InputBox(string.Format("Images to generate for {0}", fmapTabControl.TabPages[tabIndex].Text),
+                    "Combinatoric Gen prompt", "2", -1, -1);
+                if (!Int32.TryParse(inputBatch, out int batchSize))
+                {
+                    MessageBox.Show(string.Format("{0} could not be parsed", batchSize));
+                    return;
+                }
+                if (batchSize != 0)
+                {
+                    List<float> mults = new List<float>();
+                    List<float> counters = new List<float>();
+                    //float startValue = -1 * _fmapMultsScaled[tabIndex];
+                    float endValue = _fmapMultsScaled[tabIndex];
+                    //DialogResult dr = MessageBox.Show("Slide Past 0? (replace with slider)", "Confirmation",
+                    //    MessageBoxButtons.YesNo);
+                    //switch (dr)
+                    //{
+                    //    case DialogResult.No:
+                    //        startValue = 0;
+                    //        break;
+                    //}
+                    string startValueStr = Interaction.InputBox("Start Point", "Slide Start Point", string.Format("{0}", -1 * _fmapMultsScaled[tabIndex]), -1, -1);
+
+                    if (!float.TryParse(startValueStr, out float startValue))
+                    {
+                        MessageBox.Show(string.Format("{0} could not be parsed", startValueStr));
+                        return;
+                    }
+                    for (int i = 0; i <= batchSize - 1; i++)
+                    {
+                        mults.Add(startValue + i * (endValue - startValue) / (batchSize - 1));
+                        counters.Add(i);
+                    }
+                    multsForTabs.Add(mults);
+                    counterForTabs.Add(counters);
+                }
+            }
+            List<List<float>> combinatoricMults = BuildFmapCombinations(multsForTabs);
+            List<List<float>> combinatoricCounters = BuildFmapCombinations(counterForTabs);
+            string sampleNameEnd = "";
+            SortedDictionary<string, float[]> fnameToLatent = new SortedDictionary<string, float[]>();
+            void CustomGenerateImage(int i, string batchDir)
+            {
+                int combinatoricIndex = i % combinatoricMults.Count;
+                int batchIndex = i / combinatoricMults.Count;
+                List<float> multsForTab = new List<float>(_fmapMultsScaled);
+                int tabIndex = 0;
+                foreach (int tab in activeTabs)
+                {
+                    multsForTab[tab] = combinatoricMults[combinatoricIndex][tabIndex];
+                    tabIndex++;
+                }
+                List<float> countersForTab = combinatoricCounters[combinatoricIndex];
+                List<float> fmapMultsTmp = _fmapMultsScaled;
+
+                if (combinatoricIndex == 0)
+                {
+                    sampleNameEnd = GenerateSampleName();
+                    if (nonModifyingTabs.Count > 0)
+                    {
+                        _fmapMultsScaled = new List<float>();
+                        GenerateImage(ApplyTrackbarsToLatent(intermediates[batchIndex], includeUniqueness: includeUniqueness), sampleNameEnd, batchDir, fmapModsUseCurrentTab: false);
+                        foreach (int nonModifyingTab in nonModifyingTabs)
+                        {
+                            RunFmapScript(_fmapScripts[nonModifyingTab], nonModifyingTab);
+                        }
+                    }
+                }
+
+                _fmapMultsScaled = multsForTab;
+                string fname = "";
+                tabIndex = 0;
+                foreach (int tab in activeTabs)
+                {
+                    fname += fmapTabControl.TabPages[tab].Text + string.Format("-{0}_", countersForTab[tabIndex]);
+                    tabIndex++;
+                }
+                string sampleName = string.Format("{0}_{1}", fname, sampleNameEnd);
+                GenerateImage(ApplyTrackbarsToLatent(intermediates[batchIndex], includeUniqueness: includeUniqueness), sampleName, batchDir, fmapModsUseCurrentTab: false);
+                _fmapMultsScaled = fmapMultsTmp;
+            }
+            BatchGeneration(combinatoricMults.Count * intermediates.Count, 1, CustomGenerateImage, fnameToLatent);
         }
         private void NewLatentCombinatoricToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -2437,82 +2805,136 @@ namespace GanStudio
             {
                 intermediates.Add(lm.GenerateNewIntermediateLatent());
             }
-
-            List<int> activeTabs = GetActiveTabs();
-            List<List<int>> multsForTabs = new List<List<int>>();
-            List<List<int>> counterForTabs = new List<List<int>>();
-            foreach (int tabIndex in activeTabs)
-            {
-                string inputBatch = Interaction.InputBox(string.Format("Images to generate for {0}", fmapTabControl.TabPages[tabIndex].Text),
-                    "Combinatoric Gen prompt", "2", -1, -1);
-                if (!Int32.TryParse(inputBatch, out int batchSize))
-                {
-                    MessageBox.Show(string.Format("{0} could not be parsed", batchSize));
-                    return;
-                }
-                if (batchSize != 0)
-                {
-                    List<int> mults = new List<int>();
-                    List<int> counters = new List<int>();
-                    int startValue = -1 * _fmapMults[tabIndex];
-                    int endValue = _fmapMults[tabIndex];
-                    DialogResult dr = MessageBox.Show("Slide past 0?", "Confirmation",
-                        MessageBoxButtons.YesNo);
-                    switch (dr)
-                    {
-                        case DialogResult.No:
-                            startValue = 0;
-                            break;
-                    }
-                    for (int i = 0; i <= batchSize - 1; i++)
-                    {
-                        mults.Add(startValue + i * (endValue - startValue) / (batchSize - 1));
-                        counters.Add(i);
-                    }
-                    multsForTabs.Add(mults);
-                    counterForTabs.Add(counters);
-                }
-            }
-            List<List<int>> combinatoricMults = BuildFmapCombinations(multsForTabs);
-            List<List<int>> combinatoricCounters = BuildFmapCombinations(counterForTabs);
-
-            SortedDictionary<string, float[]> fnameToLatent = new SortedDictionary<string, float[]>();
-            void CustomGenerateImage(int i, string batchDir)
-            {
-                int combinatoricIndex = i % combinatoricMults.Count;
-                int batchIndex = i / combinatoricMults.Count;
-                List<int> multsForTab = new List<int>(_fmapMults);
-                int tabIndex = 0;
-                foreach (int tab in activeTabs)
-                {
-                    multsForTab[tab] = combinatoricMults[combinatoricIndex][tabIndex];
-                    tabIndex++;
-                }
-                List<int> countersForTab = combinatoricCounters[combinatoricIndex];
-                List<int> fmapMultsTmp = _fmapMults;
-                _fmapMults = multsForTab;
-                string fname = "";
-                tabIndex = 0;
-                foreach (int tab in activeTabs)
-                {
-                    fname += fmapTabControl.TabPages[tab].Text + string.Format("-{0}_", countersForTab[tabIndex]);
-                    tabIndex++;
-                }
-                string sampleName = string.Format("{0}_{1}", fname, GenerateSampleName());
-                GenerateImage(ApplyTrackbarsToLatent(intermediates[batchIndex]), sampleName, batchDir, fmapModsUseCurrentTab: false);
-                _fmapMults = fmapMultsTmp;
-            }
-            BatchGeneration(combinatoricMults.Count * intermediates.Count, 1, CustomGenerateImage, fnameToLatent);
+            CombinatoricFmapGeneration(intermediates);
         }
         private void ButtonSetToZero_Click(object sender, EventArgs e)
         {
             spatialMultBar.Value = 0;
-            _fmapMults[fmapTabControl.SelectedIndex] = 0;
+            for (int i = 0; i < _fmapMults.Count; i++)
+            {
+                _fmapMults[i] = 0;
+                _fmapMultsScaled[i] = 0.0f;
+            }
+        }
+        private float MultBarValueToMultiplier(int multVal)
+        {
+            int sign = Math.Sign(multVal);
+            float val = sign * Convert.ToSingle(Math.Exp(Math.Abs(multVal) / 20.0));
+            labelCurrentMult.Text = string.Format("{0}", val);
+            labelCurrentMult.Refresh();
+            return val;
         }
         private void SpatialMultBar_Scroll(object sender, EventArgs e)
         {
+            if (_fmapMultsScaled.Count < fmapTabControl.SelectedIndex || fmapTabControl.SelectedIndex == -1)
+            {
+                return;
+            }
+            float val = MultBarValueToMultiplier(spatialMultBar.Value);
+            labelCurrentMult.Text = string.Format("{0}", val);
+            labelCurrentMult.Refresh();
+            _fmapMultsScaled[fmapTabControl.SelectedIndex] = val;
             _fmapMults[fmapTabControl.SelectedIndex] = spatialMultBar.Value;
         }
+        private void ButtonAddFromOutput_Click(object sender, EventArgs e)
+        {
+            if (int.TryParse(textBoxAddFromOutput.Text, out int numToAdd))
+            {
+
+                for (int i = 0; i < Math.Min(_fmapButtonsDisplayed.Count, numToAdd); i++)
+                {
+                        if (fmapsToViewTextbox.Text.Length > 0)
+                        {
+                            fmapsToViewTextbox.Text += string.Format(",{0}", _fmapButtonsDisplayed[i]);
+                        }
+                        else
+                        {
+                            fmapsToViewTextbox.Text += string.Format("{0}", _fmapButtonsDisplayed[i]);
+                        }
+                 }
+            }
+        }
+
+        private void FmapTabControl_Click(object sender, EventArgs e)
+        {
+            float val = MultBarValueToMultiplier(spatialMultBar.Value);
+            labelCurrentMult.Text = string.Format("{0}", val);
+            labelCurrentMult.Refresh();
+        }
+
+        private void CombinatoricToolStripMenuItem2_Click(object sender, EventArgs e)
+        {
+            BatchFromAttributes(true);
+        }
+
+        private void SpectrumToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            Tuple<int, int> batchAndThreads = BatchGeneratePrompt();
+            if (batchAndThreads == null)
+            {
+                return;
+            }
+            int batchSize = batchAndThreads.Item1;
+            int threadCount = batchAndThreads.Item2;
+            if (batchSize <= 1)
+            {
+                MessageBox.Show("Need batch size of > 1 (just click Generate New for a single image)");
+                return;
+            }
+
+            float[] endLatent = ApplyTrackbarsToLatent(_currentLatent, -1.0f);
+            DialogResult dr = MessageBox.Show("Slide Past 0? (replace with slider)", "Confirmation",
+                MessageBoxButtons.YesNo);
+            switch (dr)
+            {
+                case DialogResult.No:
+                    endLatent = ApplyTrackbarsToLatent(_currentLatent, 0.0f);
+                    break;
+            }
+
+            float[] startLatent = ApplyTrackbarsToLatent(_currentLatent);
+
+            SortedDictionary<string, float[]> fnameToLatent = new SortedDictionary<string, float[]>();
+            void CustomGenerateImage(int i, string batchDir)
+            {
+                float factor = i * 1.0f / (batchSize - 1);
+                float[] newLatent = LatentManipulator.VectorCombine(startLatent, endLatent, factor, 1.0f - factor);
+                string sampleName = string.Format("{0}_{1}", i, GenerateSampleName());
+                GenerateImage(newLatent, sampleName, batchDir);
+                fnameToLatent.Add(sampleName, newLatent);
+            }
+            BatchGeneration(batchSize, threadCount, CustomGenerateImage, fnameToLatent);
+        }
+        private void SequentialToolStripMenuItem1_Click(object sender, EventArgs e)
+        {
+            BatchFromAttributes(false);
+        }
+        private void RecordScriptParameters()
+        {
+            if (fmapTabControl.SelectedIndex != -1)
+            {
+                _fmapScripts[fmapTabControl.SelectedIndex] = UIElementsToScriptText();
+            }
+        }
+        private void ComboBoxScriptDims_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            RecordScriptParameters();
+        }
+        private void TextBoxScriptFmaps_TextChanged(object sender, EventArgs e)
+        {
+            RecordScriptParameters();
+        }
+
+        private void CheckBoxScriptCopyImage_CheckedChanged(object sender, EventArgs e)
+        {
+            RecordScriptParameters();
+        }
+
+        private void CheckBoxScriptNonModifying_CheckedChanged(object sender, EventArgs e)
+        {
+            RecordScriptParameters();
+        }
+
     }
 }
 

@@ -18,6 +18,8 @@ if __name__ == "__main__":
     parser.add_argument("dir", type=str)
     parser.add_argument("--resize_factor", type=float, default=None,
         help="resize spatial map by this factor")
+    parser.add_argument("--no_threshold", default=False, action='store_true', 
+        help="output continuous values")
     parser.add_argument("--threshold", type=float, default=25.0, 
         help="include in spatial map if average is above this")
     args = parser.parse_args()
@@ -30,8 +32,9 @@ if __name__ == "__main__":
             data = pd.read_csv(fmap_path, delimiter=',', header=None)
     data = data / len(fmaps)
     fmap_values = data.values
-    fmap_values[fmap_values <= args.threshold] = 0.0
-    fmap_values[fmap_values > args.threshold] = 1.0
+    if not args.no_threshold:
+        fmap_values[fmap_values <= args.threshold] = 0.0
+        fmap_values[fmap_values > args.threshold] = 1.0
     if args.resize_factor is not None:
         new_size = np.array([fmap_values.shape[1], fmap_values.shape[0]])*args.resize_factor
         fmap_values = resize(fmap_values, tuple(new_size.astype(np.int32)))

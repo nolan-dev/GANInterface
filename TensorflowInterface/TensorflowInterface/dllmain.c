@@ -37,8 +37,10 @@ void write_file(const char* data, int bytes, const char* file);
 
 void free_buffer(void* data, size_t length) { free(data); }
 
-//void deallocator(void* ptr, size_t len, void* arg) { free((void*)ptr); }
-void deallocator(void* ptr, size_t len, void* arg) { return; } // up to caller to deallocate
+void deallocator(void* ptr, size_t len, void* arg) 
+{
+	free(ptr);
+}
 
 int initialize_global_session(const char* graph_path) {
 	// load graph
@@ -98,22 +100,29 @@ int image_and_fmaps_from_latent(int num_inputs, float** inputs, int* input_num_d
 		TF_Operation* input_op = TF_GraphOperationByName(graph, input_names[i]);
 		int64_t* raw_input_dims = (int64_t*)malloc(input_num_dims[i] * sizeof(int64_t));
 		size_t total_size = 1;
+
 		for (int j = 0; j < input_num_dims[i]; j++)
 		{
 			raw_input_dims[j] = input_dims[i][j];
 			total_size *= input_dims[i][j];
 		}
+        // TF_Tensor deallocates its input... which in this case is memory allocated by the caller
+		//https://github.com/tensorflow/tensorflow/blob/8884c7824fcade78b44d434e0181a775452034fd/tensorflow/c/tf_tensor.cc
+		// tensorflow!tensorflow::Summary_Value::set_simple_value+0xba03b : creates exception if malloc fails
+		float* tmp_inputs = (float*)malloc(total_size * sizeof(float));
+		memcpy(tmp_inputs, inputs[i], total_size * sizeof(float));
 		TF_Tensor* input_tensor =
-			TF_NewTensor(TF_FLOAT, raw_input_dims, input_num_dims[i], inputs[i],
+			TF_NewTensor(TF_FLOAT, raw_input_dims, input_num_dims[i], tmp_inputs,
 				total_size * sizeof(float), &deallocator, NULL);
+		free(raw_input_dims);
 		run_inputs[i].oper = input_op;
 		run_inputs[i].index = 0;
 		run_inputs_tensors[i] = input_tensor;
 	}
-	
 
-	int max_fsize = 5 * 10000 * 100;
+	int max_fsize = 10 * 10000 * 100;
 	TF_Output* run_outputs = (TF_Output*)malloc(num_outputs * sizeof(TF_Output));
+    // TF_SessionRun allocates output tensors
 	TF_Tensor** run_output_tensors = (TF_Tensor * *)malloc(num_outputs * sizeof(TF_Tensor*));
 	OutputDebugStringA("Setting up outputs");
 	for (int i = 0; i < num_outputs; i++)
@@ -121,31 +130,6 @@ int image_and_fmaps_from_latent(int num_inputs, float** inputs, int* input_num_d
 		TF_Operation* output_op = TF_GraphOperationByName(graph, output_names[i]);
 		run_outputs[i].oper = output_op;
 		run_outputs[i].index = 0;
-		if (i == 0)
-		{
-			float* raw_output_data = (float*)malloc(max_fsize * sizeof(float));
-			raw_output_data[i] = 1.f;
-			TF_Tensor* output_tensor =
-				TF_NewTensor(TF_STRING, NULL, 0, raw_output_data,
-					max_fsize * sizeof(float), &deallocator, NULL);
-			run_output_tensors[i] = output_tensor;
-		}
-		else
-		{
-			int64_t* raw_output_dims = (int64_t*)malloc(output_num_dims[i] * sizeof(int64_t));
-			size_t total_size = 1;
-			for (int j = 0; j < output_num_dims[i]; j++)
-			{
-				raw_output_dims[j] = output_dims[i][j];
-				total_size *= output_dims[i][j];
-			}
-			float* raw_output_data = (float*)malloc(total_size * sizeof(float));
-			raw_output_data[i] = 1.f;
-			TF_Tensor* output_tensor =
-				TF_NewTensor(TF_FLOAT, raw_output_dims, output_num_dims[i], raw_output_data,
-					total_size * sizeof(float), &deallocator, NULL);
-			run_output_tensors[i] = output_tensor;
-		}
 	}
 
 	// run network
@@ -173,6 +157,7 @@ int image_and_fmaps_from_latent(int num_inputs, float** inputs, int* input_num_d
 		snprintf(msgbuf, 100, "write byte size %zd", TF_TensorByteSize(run_output_tensors[i]));
 		OutputDebugStringA(msgbuf);
 		memcpy(outputs[i], TF_TensorData(run_output_tensors[i]), TF_TensorByteSize(run_output_tensors[i]));
+		TF_DeleteTensor(run_output_tensors[i]);
 	}
 
 	OutputDebugStringA("Writing output");
@@ -185,149 +170,22 @@ int image_and_fmaps_from_latent(int num_inputs, float** inputs, int* input_num_d
 	// Not sure why png starts 11 bytes from start of the output
 	write_file((char*)output_image + 11, byte_size, out_path);
 	OutputDebugStringA("Cleaning up");
+	TF_DeleteTensor(run_output_tensors[0]);
 
+	for (int i = 0; i < num_inputs; i++)
+	{
+		TF_DeleteTensor(run_inputs_tensors[i]);
+	}
 	free((void*)run_inputs);
 	free((void*)run_outputs);
 
 	free((void*)run_inputs_tensors);
 	free((void*)run_output_tensors);
 
-	// todo: determine which memory needs to be freed and which is handled by tensorflow
 	return 0;
 }
 
-int image_from_latent(float* latent, const char* input_tensor_name, const char* out_path,
-	int fmap_channels, int fmap_height, int fmap_width, float* fmaps, const char* fmap_name) {
-
-	OutputDebugStringA("Creating image from latent");
-	char msgbuf[101];
-	if (sess == NULL)
-	{
-		OutputDebugStringA("ERROR: Call initialize_global_session first");
-		return -1;
-	}
-
-	if (strcmp(fmap_name, "") != 0)
-	{
-		OutputDebugStringA(fmap_name);
-	}
-
-	TF_Operation* input_op = TF_GraphOperationByName(graph, input_tensor_name);
-
-	float* raw_input_data = latent;
-	int64_t* raw_input_dims = (int64_t*)malloc(2 * sizeof(int64_t));
-	if (raw_input_dims == NULL)
-	{
-		return -1;
-	}
-	raw_input_dims[0] = 1;
-	raw_input_dims[1] = 512;
-
-	/*
-	TF_CAPI_EXPORT extern TF_Tensor* TF_NewTensor(
-		TF_DataType,
-		const int64_t* dims, int num_dims,
-		void* data, size_t len,
-		void (*deallocator)(void* data, size_t len, void* arg),
-		void* deallocator_arg);
-	*/
-	// prepare inputs
-	TF_Tensor* input_tensor =
-		TF_NewTensor(TF_FLOAT, raw_input_dims, 2, latent,
-			512 * sizeof(float), &deallocator, NULL);
-
-
-	TF_Output* run_inputs = (TF_Output*)malloc(1 * sizeof(TF_Output));
-	if (run_inputs == NULL)
-	{
-		return -1;
-	}
-	run_inputs[0].oper = input_op;
-	run_inputs[0].index = 0;
-
-	TF_Tensor** run_inputs_tensors = (TF_Tensor * *)malloc(1 * sizeof(TF_Tensor*));
-	if (run_inputs_tensors == NULL)
-	{
-		return -1;
-	}
-	run_inputs_tensors[0] = input_tensor;
-
-	// prepare outputs
-	// ================================================================================
-	TF_Operation* output_op = TF_GraphOperationByName(graph, "output");
-	// printf("output_op has %i outputs\n", TF_OperationNumOutputs(output_op));
-
-	// todo: figure out the right size
-	int max_fsize = 5 * 10000 * 100;
-	TF_Output* run_outputs = (TF_Output*)malloc(max_fsize * sizeof(TF_Output));
-	if (run_outputs == NULL)
-	{
-		return -1;
-	}
-	run_outputs[0].oper = output_op;
-	run_outputs[0].index = 0;
-
-	TF_Tensor** run_output_tensors = (TF_Tensor * *)malloc(max_fsize * sizeof(TF_Tensor*));
-	if (run_output_tensors == NULL)
-	{
-		return -1;
-	}
-	float* raw_output_data = (float*)malloc(max_fsize * sizeof(float));
-	if (raw_output_data == NULL)
-	{
-		return -1;
-	}
-	raw_output_data[0] = 1.f;
-
-	TF_Tensor* output_tensor =
-		TF_NewTensor(TF_STRING, NULL, 0, raw_output_data,
-			max_fsize * sizeof(float), &deallocator, NULL);
-	run_output_tensors[0] = output_tensor;
-
-
-	// run network
-	// ================================================================================
-	OutputDebugStringA("Session running...");
-	TF_SessionRun(sess,
-		/* RunOptions */ NULL,
-		/* Input tensors */ run_inputs, run_inputs_tensors, 1,
-		/* Output tensors */ run_outputs, run_output_tensors, 1,
-		/* Target operations */ NULL, 0,
-		/* RunMetadata */ NULL,
-		/* Output status */ status);
-	OutputDebugStringA("Session finished");
-
-	if (TF_GetCode(status) != TF_OK) {
-		snprintf(msgbuf, 100, "ERROR: Unable to run output_op: %s", TF_Message(status));
-		OutputDebugStringA(msgbuf);
-		return -1;
-	}
-
-
-	void* output_data = TF_TensorData(run_output_tensors[0]);
-
-	OutputDebugStringA("Writing output");
-	int byte_size = (int)(TF_TensorByteSize(run_output_tensors[0])) - 11;
-	if (byte_size < 0)
-	{
-		snprintf(msgbuf, 100, "Invalid byte size %d", byte_size);
-		OutputDebugStringA(msgbuf);
-	}
-	// Not sure why png starts 11 bytes from start of the output
-	write_file((char*)output_data + 11, byte_size, out_path);
-	OutputDebugStringA("Cleaning up");
-
-	free((void*)run_inputs);
-	free((void*)run_outputs);
-
-	free((void*)run_inputs_tensors);
-	free((void*)run_output_tensors);
-
-	free((void*)raw_input_dims);
-	return 0;
-}
-
-int generate_interemdiate_latent(float* out_intermediate_latent, const char* graph_path) {
+int generate_intermediate_latent(float* out_intermediate_latent) {
 	char msgbuf[101];
 	if (sess == NULL)
 	{
@@ -360,8 +218,7 @@ int generate_interemdiate_latent(float* out_intermediate_latent, const char* gra
 	{
 		return -1;
 	}
-	raw_output_data[0] = 1.f;
-	int64_t* raw_output_dims = (int64_t*)malloc(512 * sizeof(int64_t));
+	int64_t* raw_output_dims = (int64_t*)malloc(sizeof(int64_t));
 	if (raw_output_dims == NULL)
 	{
 		return -1;
@@ -371,6 +228,7 @@ int generate_interemdiate_latent(float* out_intermediate_latent, const char* gra
 	TF_Tensor* output_tensor =
 		TF_NewTensor(TF_FLOAT, raw_output_dims, 1, raw_output_data,
 			512 * sizeof(float), &deallocator, NULL);
+	free(raw_output_dims);
 	run_output_tensors[0] = output_tensor;
 
 
@@ -400,12 +258,10 @@ int generate_interemdiate_latent(float* out_intermediate_latent, const char* gra
 	OutputDebugStringA("Writing output");
 	memcpy(out_intermediate_latent, output_data, 512 * sizeof(float));
 	OutputDebugStringA("Cleaning up");
-
+	TF_DeleteTensor(output_tensor);
 	free((void*)run_outputs);
 
 	free((void*)run_output_tensors);
-
-	free((void*)raw_output_dims);
 	return 0;
 }
 
@@ -435,7 +291,6 @@ TF_Buffer* read_file(const char* file) {
 	{
 		snprintf(msgbuf, 100, "Could not open file for writing %s", file);
 		OutputDebugStringA(msgbuf);
-		printf("The file 'data2' was not opened\n");
 	}
 	if (f == NULL)
 	{

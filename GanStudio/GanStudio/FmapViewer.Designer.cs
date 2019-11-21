@@ -36,7 +36,7 @@
             this.flowLayoutPanel1.AutoSize = true;
             this.flowLayoutPanel1.Location = new System.Drawing.Point(12, 12);
             this.flowLayoutPanel1.Name = "flowLayoutPanel1";
-            this.flowLayoutPanel1.Size = new System.Drawing.Size(1292, 873);
+            this.flowLayoutPanel1.Size = new System.Drawing.Size(1292, 474);
             this.flowLayoutPanel1.TabIndex = 0;
             this.flowLayoutPanel1.WrapContents = false;
             this.flowLayoutPanel1.Scroll += new System.Windows.Forms.ScrollEventHandler(this.FlowLayoutPanel1_Scroll);
@@ -47,7 +47,7 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(9F, 20F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.AutoScroll = true;
-            this.ClientSize = new System.Drawing.Size(1316, 897);
+            this.ClientSize = new System.Drawing.Size(1319, 495);
             this.Controls.Add(this.flowLayoutPanel1);
             this.Name = "FmapViewer";
             this.Text = "FmapViewer";
