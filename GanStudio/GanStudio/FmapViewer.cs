@@ -15,7 +15,7 @@ namespace GanStudio
         List<PictureBox> _picList = new List<PictureBox>();
         List<float[,]> _fmapList = new List<float[,]>();
 
-        public delegate void AddFmapDelegate(string imagePath, float[,] fmap, int fmapIndex);
+        public delegate void AddFmapDelegate(string imagePath, float[,] fmap, string fmapIndex);
         public AddFmapDelegate addFmapDelegate;
         bool colorblindMode;
 
@@ -26,7 +26,7 @@ namespace GanStudio
             parent.Invoke(parent.fmapsViewerStartedDelegate);
             colorblindMode = _colorblindMode;
         }
-        public void AddFmapMethod(string imagePath, float [,] fmap, int fmapIndex)
+        public void AddFmapMethod(string imagePath, float [,] fmap, string fmapIndex)
         {
             string strFmap = string.Format("{0}", fmapIndex);
             GroupBox imageWithCaption = new GroupBox();
@@ -35,6 +35,10 @@ namespace GanStudio
             pic1.SizeMode = PictureBoxSizeMode.AutoSize;
             pic1.Paint += PictureBox1_Paint;
             pic1.Text = string.Format("{0}", _fmapList.Count);
+            if (this.Height < pic1.Height + 100)
+            {
+                this.Height = pic1.Height + 100;
+            }
             imageWithCaption.Height = pic1.Height + 25;
             imageWithCaption.Width = pic1.Width;
             TextBox fmapBox = new TextBox();
@@ -63,7 +67,7 @@ namespace GanStudio
         //    float[,] test = new float[8, 4];
         //    test[0, 0] = 1.0f;
         //}
-        private void DrawFmap(float[,] fmap, PictureBox pictureBox, Graphics g, float magntiudeMult = 50.0f)
+        private void DrawFmap(float[,] fmap, PictureBox pictureBox, Graphics g, float magntiudeMult = 255.0f)
         {
             if (fmap == null)
             {
@@ -72,15 +76,16 @@ namespace GanStudio
             // Draw grid            
             int rectHeight = pictureBox.Height / fmap.GetLength(0);
             int rectWidth = pictureBox.Width / fmap.GetLength(1);
+            float maxValue = Math.Max(fmap.Cast<float>().Max(), -1* fmap.Cast<float>().Min());
             for (int row = 0; row < fmap.GetLength(0); row++)
             {
                 for (int column = 0; column < fmap.GetLength(1); column++)
                 {
-                    float magnitude = Math.Abs(magntiudeMult * fmap[row, column]);
+                    float magnitude = Math.Abs(magntiudeMult * fmap[row, column] / maxValue);
                     if (magnitude > 0)
                     {
                         int colorMagnitude = (int)Math.Min(magnitude, 255);
-                        float lineMagnitude = magnitude / 255;
+                        float lineMagnitude = 1.0f; // magnitude;
                         if (fmap[row, column] > 0)
                         {
                             Rectangle ee = new Rectangle(column * rectWidth, row * rectHeight, rectWidth, rectHeight);

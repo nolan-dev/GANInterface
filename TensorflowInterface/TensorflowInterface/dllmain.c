@@ -36,7 +36,6 @@ TF_Buffer* read_file(const char* file);
 void write_file(const char* data, int bytes, const char* file);
 
 void free_buffer(void* data, size_t length) { free(data); }
-
 void deallocator(void* ptr, size_t len, void* arg) 
 {
 	free(ptr);
@@ -122,7 +121,6 @@ int image_and_fmaps_from_latent(int num_inputs, float** inputs, int* input_num_d
 
 	int max_fsize = 10 * 10000 * 100;
 	TF_Output* run_outputs = (TF_Output*)malloc(num_outputs * sizeof(TF_Output));
-    // TF_SessionRun allocates output tensors
 	TF_Tensor** run_output_tensors = (TF_Tensor * *)malloc(num_outputs * sizeof(TF_Tensor*));
 	OutputDebugStringA("Setting up outputs");
 	for (int i = 0; i < num_outputs; i++)
@@ -145,7 +143,7 @@ int image_and_fmaps_from_latent(int num_inputs, float** inputs, int* input_num_d
 	OutputDebugStringA("Session finished");
 
 	if (TF_GetCode(status) != TF_OK) {
-		snprintf(msgbuf, 100, "ERROR: Unable to run output_op: %s", TF_Message(status));
+		snprintf(msgbuf, 100, "ERROR: Unable to run: %s", TF_Message(status));
 		OutputDebugStringA(msgbuf);
 		return -1;
 	}
@@ -185,7 +183,7 @@ int image_and_fmaps_from_latent(int num_inputs, float** inputs, int* input_num_d
 	return 0;
 }
 
-int generate_intermediate_latent(float* out_intermediate_latent) {
+int generate_intermediate_latent(float* out_intermediate_latent, const char* intermediate_tensor_name) {
 	char msgbuf[101];
 	if (sess == NULL)
 	{
@@ -196,7 +194,7 @@ int generate_intermediate_latent(float* out_intermediate_latent) {
 
 	// prepare outputs
 	// ================================================================================
-	TF_Operation* output_op = TF_GraphOperationByName(graph, "intermediate_latent");
+	TF_Operation* output_op = TF_GraphOperationByName(graph, intermediate_tensor_name);
 	// printf("output_op has %i outputs\n", TF_OperationNumOutputs(output_op));
 
 	// todo: figure out the right size

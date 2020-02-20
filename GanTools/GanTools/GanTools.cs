@@ -113,7 +113,7 @@ namespace GanTools
         //    string fmap_name, float[,,] output_fmaps, float[,,] input_fmaps, int fmap_height, int fmap_width, int use_input_fmaps);
 
         [DllImport("TensorflowInterface.dll")]
-        public static extern int generate_intermediate_latent(float[] out_intermediate_latent);
+        public static extern int generate_intermediate_latent(float[] out_intermediate_latent, string intermediate_tensor_name);
 
         [DllImport("TensorflowInterface.dll")]
         public static extern int initialize_global_session(string graph_path);
@@ -147,10 +147,10 @@ namespace GanTools
                 throw new Exception("Initialization failed, in initialize_global_session");
             }
         }
-        public float[] GenerateNewIntermediateLatent()
+        public float[] GenerateNewIntermediateLatent(string intermediateLatentName)
         {
             float[] newIntermediate = new float[512];
-            generate_intermediate_latent(newIntermediate);
+            generate_intermediate_latent(newIntermediate, intermediateLatentName);
             return newIntermediate;
         }
         public void CloseSession()
