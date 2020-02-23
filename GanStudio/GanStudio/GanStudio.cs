@@ -703,11 +703,34 @@ namespace GanStudio
             if (lm.ReadAverageLatentFromCsv(lm.AverageLatentCsvPath) == -1)
             {
                 //throw new Exception("Initialization failed, in ReadAverageLatentFromCsv");
-                MessageBox.Show(string.Format("Could not find {0}, disabling quality bar (working dir: {1})",
+                DialogResult result = MessageBox.Show(string.Format("Could not find average latent file {0}\n Would you like to generate it? This may take a minute\n working dir: {1}",
                     lm.AverageLatentCsvPath,
-                    System.IO.Directory.GetCurrentDirectory()));
-                varianceBar.Value = varianceBar.Maximum;
-                varianceBar.Enabled = false;
+                    System.IO.Directory.GetCurrentDirectory()), "No average latent", MessageBoxButtons.YesNo);
+                if (result == DialogResult.Yes)
+                {
+                    int totalLatentsToAverage = 10000;
+                    float[] summedInteremediates = new float[512];
+                    for (int i = 0; i < totalLatentsToAverage; i++)
+                    {
+                        float[] intermediate = lm.GenerateNewIntermediateLatent();
+                        summedInteremediates = LatentManipulator.VectorCombine(summedInteremediates, intermediate, 1.0f, 1.0f);
+                    }
+                    float[] averageIntermediate = LatentManipulator.VectorCombine(summedInteremediates, new float[512], 1.0f / totalLatentsToAverage, 0.0f);
+                    using (TextWriter writer = new StreamWriter(lm.AverageLatentCsvPath,
+                        true, System.Text.Encoding.UTF8))
+                    {
+                        var csv = new CsvWriter(writer);
+                        csv.WriteRecord(new LatentForFilename("all", lm._graphHashStr, string.Join(":", averageIntermediate)));
+                        csv.NextRecord();
+                        csv.Flush();
+                    }
+                    lm.ReadAverageLatentFromCsv(lm.AverageLatentCsvPath);
+                }
+                else
+                {
+                    varianceBar.Value = varianceBar.Maximum;
+                    varianceBar.Enabled = false;
+                }
             }
             //if (lm.ReadAttributesFromCsv(lm.AttributesCsvPath) == null)
             //{

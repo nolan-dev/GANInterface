@@ -125,45 +125,49 @@
             this.loadTabs = new System.Windows.Forms.Button();
             this.mainTabControl = new System.Windows.Forms.TabControl();
             this.spatialModification = new System.Windows.Forms.TabPage();
-            this.label12 = new System.Windows.Forms.Label();
-            this.spatialMod = new System.Windows.Forms.Button();
+            this.groupBox6 = new System.Windows.Forms.GroupBox();
             this.label6 = new System.Windows.Forms.Label();
             this.labelCurrentMult = new System.Windows.Forms.Label();
+            this.label7 = new System.Windows.Forms.Label();
+            this.groupBox5 = new System.Windows.Forms.GroupBox();
+            this.label10 = new System.Windows.Forms.Label();
+            this.spatialMod = new System.Windows.Forms.Button();
+            this.label8 = new System.Windows.Forms.Label();
+            this.fmapIndexBox = new System.Windows.Forms.TextBox();
+            this.label9 = new System.Windows.Forms.Label();
+            this.fmapValueBox = new System.Windows.Forms.TextBox();
             this.groupBox3 = new System.Windows.Forms.GroupBox();
             this.radioButtonNoFmapButtons = new System.Windows.Forms.RadioButton();
+            this.checkBoxViewAveraged = new System.Windows.Forms.CheckBox();
+            this.groupBox4 = new System.Windows.Forms.GroupBox();
+            this.label12 = new System.Windows.Forms.Label();
             this.scriptLabel = new System.Windows.Forms.Label();
+            this.label11 = new System.Windows.Forms.Label();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
             this.radioButtonNoScriptRun = new System.Windows.Forms.RadioButton();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.textBoxCustomLayersToGet = new System.Windows.Forms.TextBox();
             this.radioButtonCustomLayers = new System.Windows.Forms.RadioButton();
             this.radioButtonNoFmaps = new System.Windows.Forms.RadioButton();
-            this.label11 = new System.Windows.Forms.Label();
-            this.checkBoxViewAveraged = new System.Windows.Forms.CheckBox();
-            this.label10 = new System.Windows.Forms.Label();
-            this.fmapValueBox = new System.Windows.Forms.TextBox();
-            this.label9 = new System.Windows.Forms.Label();
-            this.fmapIndexBox = new System.Windows.Forms.TextBox();
-            this.label8 = new System.Windows.Forms.Label();
             this.tabControlFmapChannels = new System.Windows.Forms.TabControl();
             this.tabPageFmapOutput = new System.Windows.Forms.TabPage();
             this.flowLayoutOutputFmap = new System.Windows.Forms.FlowLayoutPanel();
             this.tabPageFmapInput = new System.Windows.Forms.TabPage();
             this.flowLayoutInputFmap = new System.Windows.Forms.FlowLayoutPanel();
-            this.label7 = new System.Windows.Forms.Label();
             this.groupBoxGeneralControls = new System.Windows.Forms.GroupBox();
             this.groupBoxAdvancedControls = new System.Windows.Forms.GroupBox();
             this.label4 = new System.Windows.Forms.Label();
-            this.groupBox4 = new System.Windows.Forms.GroupBox();
-            this.groupBox5 = new System.Windows.Forms.GroupBox();
-            this.groupBox6 = new System.Windows.Forms.GroupBox();
+            this.zero_label = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.varianceBar)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.spatialMultBar)).BeginInit();
             this.menuStrip1.SuspendLayout();
             this.mainTabControl.SuspendLayout();
             this.spatialModification.SuspendLayout();
+            this.groupBox6.SuspendLayout();
+            this.groupBox5.SuspendLayout();
             this.groupBox3.SuspendLayout();
+            this.groupBox4.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.groupBox1.SuspendLayout();
             this.tabControlFmapChannels.SuspendLayout();
@@ -171,9 +175,6 @@
             this.tabPageFmapInput.SuspendLayout();
             this.groupBoxGeneralControls.SuspendLayout();
             this.groupBoxAdvancedControls.SuspendLayout();
-            this.groupBox4.SuspendLayout();
-            this.groupBox5.SuspendLayout();
-            this.groupBox6.SuspendLayout();
             this.SuspendLayout();
             // 
             // pictureBox1
@@ -1180,24 +1181,28 @@
             this.spatialModification.Text = "Spatial";
             this.spatialModification.UseVisualStyleBackColor = true;
             // 
-            // label12
+            // groupBox6
             // 
-            this.label12.AutoSize = true;
-            this.label12.Location = new System.Drawing.Point(377, 22);
-            this.label12.Name = "label12";
-            this.label12.Size = new System.Drawing.Size(205, 20);
-            this.label12.TabIndex = 129;
-            this.label12.Text = "Feature Map Specifier Tabs";
-            // 
-            // spatialMod
-            // 
-            this.spatialMod.Location = new System.Drawing.Point(174, 88);
-            this.spatialMod.Name = "spatialMod";
-            this.spatialMod.Size = new System.Drawing.Size(120, 77);
-            this.spatialMod.TabIndex = 55;
-            this.spatialMod.Text = "Toggle Show Selection";
-            this.spatialMod.UseVisualStyleBackColor = true;
-            this.spatialMod.Click += new System.EventHandler(this.SpatialMod_Click);
+            this.groupBox6.Controls.Add(this.zero_label);
+            this.groupBox6.Controls.Add(this.fmapTabControl);
+            this.groupBox6.Controls.Add(this.saveTabs);
+            this.groupBox6.Controls.Add(this.loadTabs);
+            this.groupBox6.Controls.Add(this.resetMult);
+            this.groupBox6.Controls.Add(this.label6);
+            this.groupBox6.Controls.Add(this.renameTab);
+            this.groupBox6.Controls.Add(this.labelCurrentMult);
+            this.groupBox6.Controls.Add(this.spatialMultBar);
+            this.groupBox6.Controls.Add(this.buttonSetToZero);
+            this.groupBox6.Controls.Add(this.comboBoxDims);
+            this.groupBox6.Controls.Add(this.addTab);
+            this.groupBox6.Controls.Add(this.removeTab);
+            this.groupBox6.Controls.Add(this.label7);
+            this.groupBox6.Location = new System.Drawing.Point(10, 3);
+            this.groupBox6.Name = "groupBox6";
+            this.groupBox6.Size = new System.Drawing.Size(1338, 183);
+            this.groupBox6.TabIndex = 132;
+            this.groupBox6.TabStop = false;
+            this.groupBox6.Text = "Tabs for viewing/modifying feature maps at specified resolutions";
             // 
             // label6
             // 
@@ -1216,6 +1221,95 @@
             this.labelCurrentMult.Size = new System.Drawing.Size(18, 20);
             this.labelCurrentMult.TabIndex = 113;
             this.labelCurrentMult.Text = "0";
+            // 
+            // label7
+            // 
+            this.label7.AutoSize = true;
+            this.label7.Location = new System.Drawing.Point(615, 145);
+            this.label7.Name = "label7";
+            this.label7.Size = new System.Drawing.Size(18, 20);
+            this.label7.TabIndex = 77;
+            this.label7.Text = "0";
+            // 
+            // groupBox5
+            // 
+            this.groupBox5.Controls.Add(this.label10);
+            this.groupBox5.Controls.Add(this.randomizeFmaps);
+            this.groupBox5.Controls.Add(this.spatialMod);
+            this.groupBox5.Controls.Add(this.resetFmaps);
+            this.groupBox5.Controls.Add(this.label8);
+            this.groupBox5.Controls.Add(this.fmapIndexBox);
+            this.groupBox5.Controls.Add(this.label9);
+            this.groupBox5.Controls.Add(this.buttonAddFromOutput);
+            this.groupBox5.Controls.Add(this.fmapValueBox);
+            this.groupBox5.Controls.Add(this.textBoxAddFromOutput);
+            this.groupBox5.Controls.Add(this.buttonFmapAssign);
+            this.groupBox5.Controls.Add(this.checkBoxViewNonZeroOnly);
+            this.groupBox5.Controls.Add(this.viewMultipleMaps);
+            this.groupBox5.Controls.Add(this.groupBox3);
+            this.groupBox5.Controls.Add(this.fmapsToViewTextbox);
+            this.groupBox5.Controls.Add(this.fmapsToMod);
+            this.groupBox5.Controls.Add(this.checkBoxRecordFmaps);
+            this.groupBox5.Controls.Add(this.checkBoxViewAveraged);
+            this.groupBox5.Controls.Add(this.resetAverageButton);
+            this.groupBox5.Controls.Add(this.viewHistoryButton);
+            this.groupBox5.Location = new System.Drawing.Point(10, 399);
+            this.groupBox5.Name = "groupBox5";
+            this.groupBox5.Size = new System.Drawing.Size(1283, 174);
+            this.groupBox5.TabIndex = 131;
+            this.groupBox5.TabStop = false;
+            this.groupBox5.Text = "Input/Output";
+            // 
+            // label10
+            // 
+            this.label10.AutoSize = true;
+            this.label10.Location = new System.Drawing.Point(10, 27);
+            this.label10.Name = "label10";
+            this.label10.Size = new System.Drawing.Size(58, 20);
+            this.label10.TabIndex = 95;
+            this.label10.Text = "Fmaps";
+            // 
+            // spatialMod
+            // 
+            this.spatialMod.Location = new System.Drawing.Point(174, 88);
+            this.spatialMod.Name = "spatialMod";
+            this.spatialMod.Size = new System.Drawing.Size(120, 77);
+            this.spatialMod.TabIndex = 55;
+            this.spatialMod.Text = "Toggle Show Selection";
+            this.spatialMod.UseVisualStyleBackColor = true;
+            this.spatialMod.Click += new System.EventHandler(this.SpatialMod_Click);
+            // 
+            // label8
+            // 
+            this.label8.AutoSize = true;
+            this.label8.Location = new System.Drawing.Point(910, 33);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(79, 20);
+            this.label8.TabIndex = 86;
+            this.label8.Text = "Set Fmap";
+            // 
+            // fmapIndexBox
+            // 
+            this.fmapIndexBox.Location = new System.Drawing.Point(989, 32);
+            this.fmapIndexBox.Name = "fmapIndexBox";
+            this.fmapIndexBox.Size = new System.Drawing.Size(100, 26);
+            this.fmapIndexBox.TabIndex = 87;
+            // 
+            // label9
+            // 
+            this.label9.AutoSize = true;
+            this.label9.Location = new System.Drawing.Point(960, 64);
+            this.label9.Name = "label9";
+            this.label9.Size = new System.Drawing.Size(23, 20);
+            this.label9.TabIndex = 88;
+            this.label9.Text = "to";
+            // 
+            // fmapValueBox
+            // 
+            this.fmapValueBox.Location = new System.Drawing.Point(989, 64);
+            this.fmapValueBox.Name = "fmapValueBox";
+            this.fmapValueBox.Size = new System.Drawing.Size(100, 26);
+            this.fmapValueBox.TabIndex = 89;
             // 
             // groupBox3
             // 
@@ -1242,6 +1336,49 @@
             this.radioButtonNoFmapButtons.Text = "None";
             this.radioButtonNoFmapButtons.UseVisualStyleBackColor = true;
             // 
+            // checkBoxViewAveraged
+            // 
+            this.checkBoxViewAveraged.AutoSize = true;
+            this.checkBoxViewAveraged.Location = new System.Drawing.Point(488, 31);
+            this.checkBoxViewAveraged.Name = "checkBoxViewAveraged";
+            this.checkBoxViewAveraged.Size = new System.Drawing.Size(201, 24);
+            this.checkBoxViewAveraged.TabIndex = 97;
+            this.checkBoxViewAveraged.Text = "View Historical Average";
+            this.checkBoxViewAveraged.UseVisualStyleBackColor = true;
+            // 
+            // groupBox4
+            // 
+            this.groupBox4.Controls.Add(this.checkBoxWriteImage);
+            this.groupBox4.Controls.Add(this.label12);
+            this.groupBox4.Controls.Add(this.checkBoxHideScript);
+            this.groupBox4.Controls.Add(this.checkBoxWriteSelections);
+            this.groupBox4.Controls.Add(this.scriptLabel);
+            this.groupBox4.Controls.Add(this.checkBoxScriptNonModifying);
+            this.groupBox4.Controls.Add(this.scriptPathBox);
+            this.groupBox4.Controls.Add(this.checkBoxScriptImagePathAsParameter);
+            this.groupBox4.Controls.Add(this.buttonSetCurrentTabInput);
+            this.groupBox4.Controls.Add(this.checkBoxGenerateNewAfterScript);
+            this.groupBox4.Controls.Add(this.buttonViewFmaps);
+            this.groupBox4.Controls.Add(this.label11);
+            this.groupBox4.Controls.Add(this.tabControlScriptLayers);
+            this.groupBox4.Controls.Add(this.runScriptButton);
+            this.groupBox4.Controls.Add(this.groupBox2);
+            this.groupBox4.Location = new System.Drawing.Point(10, 185);
+            this.groupBox4.Name = "groupBox4";
+            this.groupBox4.Size = new System.Drawing.Size(1153, 208);
+            this.groupBox4.TabIndex = 130;
+            this.groupBox4.TabStop = false;
+            this.groupBox4.Text = "Scripting";
+            // 
+            // label12
+            // 
+            this.label12.AutoSize = true;
+            this.label12.Location = new System.Drawing.Point(377, 22);
+            this.label12.Name = "label12";
+            this.label12.Size = new System.Drawing.Size(205, 20);
+            this.label12.TabIndex = 129;
+            this.label12.Text = "Feature Map Specifier Tabs";
+            // 
             // scriptLabel
             // 
             this.scriptLabel.AutoSize = true;
@@ -1250,6 +1387,15 @@
             this.scriptLabel.Size = new System.Drawing.Size(138, 20);
             this.scriptLabel.TabIndex = 110;
             this.scriptLabel.Text = "No Script Running";
+            // 
+            // label11
+            // 
+            this.label11.AutoSize = true;
+            this.label11.Location = new System.Drawing.Point(121, 46);
+            this.label11.Name = "label11";
+            this.label11.Size = new System.Drawing.Size(167, 20);
+            this.label11.TabIndex = 101;
+            this.label11.Text = "Script and Parameters";
             // 
             // groupBox2
             // 
@@ -1319,66 +1465,6 @@
             this.radioButtonNoFmaps.Text = "None";
             this.radioButtonNoFmaps.UseVisualStyleBackColor = true;
             // 
-            // label11
-            // 
-            this.label11.AutoSize = true;
-            this.label11.Location = new System.Drawing.Point(121, 46);
-            this.label11.Name = "label11";
-            this.label11.Size = new System.Drawing.Size(167, 20);
-            this.label11.TabIndex = 101;
-            this.label11.Text = "Script and Parameters";
-            // 
-            // checkBoxViewAveraged
-            // 
-            this.checkBoxViewAveraged.AutoSize = true;
-            this.checkBoxViewAveraged.Location = new System.Drawing.Point(488, 31);
-            this.checkBoxViewAveraged.Name = "checkBoxViewAveraged";
-            this.checkBoxViewAveraged.Size = new System.Drawing.Size(201, 24);
-            this.checkBoxViewAveraged.TabIndex = 97;
-            this.checkBoxViewAveraged.Text = "View Historical Average";
-            this.checkBoxViewAveraged.UseVisualStyleBackColor = true;
-            // 
-            // label10
-            // 
-            this.label10.AutoSize = true;
-            this.label10.Location = new System.Drawing.Point(10, 27);
-            this.label10.Name = "label10";
-            this.label10.Size = new System.Drawing.Size(58, 20);
-            this.label10.TabIndex = 95;
-            this.label10.Text = "Fmaps";
-            // 
-            // fmapValueBox
-            // 
-            this.fmapValueBox.Location = new System.Drawing.Point(989, 64);
-            this.fmapValueBox.Name = "fmapValueBox";
-            this.fmapValueBox.Size = new System.Drawing.Size(100, 26);
-            this.fmapValueBox.TabIndex = 89;
-            // 
-            // label9
-            // 
-            this.label9.AutoSize = true;
-            this.label9.Location = new System.Drawing.Point(960, 64);
-            this.label9.Name = "label9";
-            this.label9.Size = new System.Drawing.Size(23, 20);
-            this.label9.TabIndex = 88;
-            this.label9.Text = "to";
-            // 
-            // fmapIndexBox
-            // 
-            this.fmapIndexBox.Location = new System.Drawing.Point(989, 32);
-            this.fmapIndexBox.Name = "fmapIndexBox";
-            this.fmapIndexBox.Size = new System.Drawing.Size(100, 26);
-            this.fmapIndexBox.TabIndex = 87;
-            // 
-            // label8
-            // 
-            this.label8.AutoSize = true;
-            this.label8.Location = new System.Drawing.Point(910, 33);
-            this.label8.Name = "label8";
-            this.label8.Size = new System.Drawing.Size(79, 20);
-            this.label8.TabIndex = 86;
-            this.label8.Text = "Set Fmap";
-            // 
             // tabControlFmapChannels
             // 
             this.tabControlFmapChannels.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
@@ -1437,15 +1523,6 @@
             this.flowLayoutInputFmap.Name = "flowLayoutInputFmap";
             this.flowLayoutInputFmap.Size = new System.Drawing.Size(1592, 543);
             this.flowLayoutInputFmap.TabIndex = 99;
-            // 
-            // label7
-            // 
-            this.label7.AutoSize = true;
-            this.label7.Location = new System.Drawing.Point(615, 145);
-            this.label7.Name = "label7";
-            this.label7.Size = new System.Drawing.Size(18, 20);
-            this.label7.TabIndex = 77;
-            this.label7.Text = "0";
             // 
             // groupBoxGeneralControls
             // 
@@ -1507,80 +1584,14 @@
             this.label4.TabIndex = 30;
             this.label4.Text = "Time To Generate";
             // 
-            // groupBox4
+            // zero_label
             // 
-            this.groupBox4.Controls.Add(this.checkBoxWriteImage);
-            this.groupBox4.Controls.Add(this.label12);
-            this.groupBox4.Controls.Add(this.checkBoxHideScript);
-            this.groupBox4.Controls.Add(this.checkBoxWriteSelections);
-            this.groupBox4.Controls.Add(this.scriptLabel);
-            this.groupBox4.Controls.Add(this.checkBoxScriptNonModifying);
-            this.groupBox4.Controls.Add(this.scriptPathBox);
-            this.groupBox4.Controls.Add(this.checkBoxScriptImagePathAsParameter);
-            this.groupBox4.Controls.Add(this.buttonSetCurrentTabInput);
-            this.groupBox4.Controls.Add(this.checkBoxGenerateNewAfterScript);
-            this.groupBox4.Controls.Add(this.buttonViewFmaps);
-            this.groupBox4.Controls.Add(this.label11);
-            this.groupBox4.Controls.Add(this.tabControlScriptLayers);
-            this.groupBox4.Controls.Add(this.runScriptButton);
-            this.groupBox4.Controls.Add(this.groupBox2);
-            this.groupBox4.Location = new System.Drawing.Point(10, 185);
-            this.groupBox4.Name = "groupBox4";
-            this.groupBox4.Size = new System.Drawing.Size(1153, 208);
-            this.groupBox4.TabIndex = 130;
-            this.groupBox4.TabStop = false;
-            this.groupBox4.Text = "Scripting";
-            // 
-            // groupBox5
-            // 
-            this.groupBox5.Controls.Add(this.label10);
-            this.groupBox5.Controls.Add(this.randomizeFmaps);
-            this.groupBox5.Controls.Add(this.spatialMod);
-            this.groupBox5.Controls.Add(this.resetFmaps);
-            this.groupBox5.Controls.Add(this.label8);
-            this.groupBox5.Controls.Add(this.fmapIndexBox);
-            this.groupBox5.Controls.Add(this.label9);
-            this.groupBox5.Controls.Add(this.buttonAddFromOutput);
-            this.groupBox5.Controls.Add(this.fmapValueBox);
-            this.groupBox5.Controls.Add(this.textBoxAddFromOutput);
-            this.groupBox5.Controls.Add(this.buttonFmapAssign);
-            this.groupBox5.Controls.Add(this.checkBoxViewNonZeroOnly);
-            this.groupBox5.Controls.Add(this.viewMultipleMaps);
-            this.groupBox5.Controls.Add(this.groupBox3);
-            this.groupBox5.Controls.Add(this.fmapsToViewTextbox);
-            this.groupBox5.Controls.Add(this.fmapsToMod);
-            this.groupBox5.Controls.Add(this.checkBoxRecordFmaps);
-            this.groupBox5.Controls.Add(this.checkBoxViewAveraged);
-            this.groupBox5.Controls.Add(this.resetAverageButton);
-            this.groupBox5.Controls.Add(this.viewHistoryButton);
-            this.groupBox5.Location = new System.Drawing.Point(10, 399);
-            this.groupBox5.Name = "groupBox5";
-            this.groupBox5.Size = new System.Drawing.Size(1283, 174);
-            this.groupBox5.TabIndex = 131;
-            this.groupBox5.TabStop = false;
-            this.groupBox5.Text = "Input/Output";
-            // 
-            // groupBox6
-            // 
-            this.groupBox6.Controls.Add(this.fmapTabControl);
-            this.groupBox6.Controls.Add(this.saveTabs);
-            this.groupBox6.Controls.Add(this.loadTabs);
-            this.groupBox6.Controls.Add(this.resetMult);
-            this.groupBox6.Controls.Add(this.label6);
-            this.groupBox6.Controls.Add(this.renameTab);
-            this.groupBox6.Controls.Add(this.labelCurrentMult);
-            this.groupBox6.Controls.Add(this.spatialMultBar);
-            this.groupBox6.Controls.Add(this.buttonSetToZero);
-            this.groupBox6.Controls.Add(this.comboBoxDims);
-            this.groupBox6.Controls.Add(this.addTab);
-            this.groupBox6.Controls.Add(this.removeTab);
-            this.groupBox6.Controls.Add(this.label7);
-            this.groupBox6.Location = new System.Drawing.Point(10, 3);
-            this.groupBox6.Name = "groupBox6";
-            this.groupBox6.Size = new System.Drawing.Size(1338, 183);
-            this.groupBox6.TabIndex = 132;
-            this.groupBox6.TabStop = false;
-            this.groupBox6.Text = "Tabs for viewing/modifying feature maps at specified resolutions";
+            this.zero_label.AutoSize = true;
+            this.zero_label.Location = new System.Drawing.Point(618, 148);
+            this.zero_label.Name = "zero_label";
+            this.zero_label.Size = new System.Drawing.Size(18, 20);
+            this.zero_label.TabIndex = 115;
+            this.zero_label.Text = "0";
             // 
             // GanStudio
             // 
@@ -1608,8 +1619,14 @@
             this.menuStrip1.PerformLayout();
             this.mainTabControl.ResumeLayout(false);
             this.spatialModification.ResumeLayout(false);
+            this.groupBox6.ResumeLayout(false);
+            this.groupBox6.PerformLayout();
+            this.groupBox5.ResumeLayout(false);
+            this.groupBox5.PerformLayout();
             this.groupBox3.ResumeLayout(false);
             this.groupBox3.PerformLayout();
+            this.groupBox4.ResumeLayout(false);
+            this.groupBox4.PerformLayout();
             this.groupBox2.ResumeLayout(false);
             this.groupBox2.PerformLayout();
             this.groupBox1.ResumeLayout(false);
@@ -1620,12 +1637,6 @@
             this.groupBoxGeneralControls.ResumeLayout(false);
             this.groupBoxAdvancedControls.ResumeLayout(false);
             this.groupBoxAdvancedControls.PerformLayout();
-            this.groupBox4.ResumeLayout(false);
-            this.groupBox4.PerformLayout();
-            this.groupBox5.ResumeLayout(false);
-            this.groupBox5.PerformLayout();
-            this.groupBox6.ResumeLayout(false);
-            this.groupBox6.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -1761,6 +1772,7 @@
         private System.Windows.Forms.GroupBox groupBox5;
         private System.Windows.Forms.GroupBox groupBox4;
         private System.Windows.Forms.GroupBox groupBox6;
+        private System.Windows.Forms.Label zero_label;
     }
 }
 
