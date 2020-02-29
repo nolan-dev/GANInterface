@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -15,7 +16,7 @@ namespace GanStudio
     {
         public string Name { get; set; }
         public string GraphHash { get; set; }
-        public string Increment { get; set; }
+        public string Vector { get; set; }
     }
     public struct LatentForFilename
     {
@@ -425,7 +426,7 @@ namespace GanStudio
             byte[] latentBytes = fileBytes.Skip(latentStart).Take(latentLength).ToArray();
             String latentString = System.Text.Encoding.Default.GetString(latentBytes);
             float[] latent = Array.ConvertAll(latentString.Split(new char[] { ':' },
-                StringSplitOptions.RemoveEmptyEntries), Single.Parse);
+                StringSplitOptions.RemoveEmptyEntries), f => Single.Parse(f, CultureInfo.InvariantCulture));
             if (latent.Length != 512)
             {
                 throw new ArgumentException(string.Format("Bad latent length {0}", latent.Length));
@@ -451,7 +452,7 @@ namespace GanStudio
                         {
                             fnameToLatent.Add(record.Fname,
                                 Array.ConvertAll(record.Latent.Split(new char[] { ':' },
-                                StringSplitOptions.RemoveEmptyEntries), Single.Parse));
+                                StringSplitOptions.RemoveEmptyEntries), f => Single.Parse(f, CultureInfo.InvariantCulture)));
                         }
                     }
                 }
@@ -470,7 +471,7 @@ namespace GanStudio
                         {
                             fnameToLatent.Add(record.Fname,
                                 Array.ConvertAll(record.Latent.Split(new char[] { ':' },
-                                StringSplitOptions.RemoveEmptyEntries), Single.Parse));
+                                StringSplitOptions.RemoveEmptyEntries), f => Single.Parse(f, CultureInfo.InvariantCulture)));
                         }
                     }
                 }
@@ -569,10 +570,9 @@ namespace GanStudio
                 {
                     if (record.Name == "all")
                     {
-                        _averageAll = Array.ConvertAll(record.Increment.Split(new char[] { ':' },
-                            StringSplitOptions.RemoveEmptyEntries), Single.Parse);
+                        _averageAll = Array.ConvertAll(record.Vector.Split(new char[] { ':' },
+                            StringSplitOptions.RemoveEmptyEntries), f => Single.Parse(f, CultureInfo.InvariantCulture));
                     }
-
                 }
             }
             return 1;
@@ -597,8 +597,8 @@ namespace GanStudio
                         Debug.WriteLine(string.Format("Duplicate attribute name {0}", record.Name));
                         return null;
                     }
-                    _attributeToLatent.Add(record.Name, Array.ConvertAll(record.Increment.Split(new char[] { ':' },
-                        StringSplitOptions.RemoveEmptyEntries), Single.Parse));
+                    _attributeToLatent.Add(record.Name, Array.ConvertAll(record.Vector.Split(new char[] { ':' },
+                        StringSplitOptions.RemoveEmptyEntries), f => Single.Parse(f, CultureInfo.InvariantCulture)));
                     newAttributes.Add(record.Name);
                 }
             }
