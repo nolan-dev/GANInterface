@@ -373,10 +373,10 @@ namespace GanStudio
                 using (var fileStream = new FileStream(path, FileMode.Append, FileAccess.Write, FileShare.None))
                 using (var bw = new BinaryWriter(fileStream))
                 {
-                    string latentStr = string.Join(":", latent);
+                    string latentStr = string.Join(":", latent.Select(f => f.ToString(CultureInfo.InvariantCulture)));
                     // explaning why this data is present in the png
                     bw.Write(AppendedDescription);
-                    bw.Write(string.Join(":", latent));
+                    bw.Write(string.Join(":", latent.Select(f => f.ToString(CultureInfo.InvariantCulture))));
                     bw.Write(_graphHash);
                     bw.Write(latentStr.Length);
                     bw.Write(0x61726164); // magic identifier
