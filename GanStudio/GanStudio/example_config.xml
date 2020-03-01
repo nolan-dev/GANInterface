@@ -3,8 +3,6 @@
         <height>256</height>
         <width>256</width>
     </resolution>
-    <intermediate_latent_name>intermediate_latent</intermediate_latent_name>
-    <output_name>output</output_name>
     <input_layers>
         <layer1>
             <name>generator_1/Res4/FmapRes4</name>
@@ -30,6 +28,10 @@
             <name>generator_1/Res128/FmapRes128</name>
             <dims>1, 128, 128, 256</dims>
         </layer6>
+        <layer7>
+            <name>generator_1/Res256/FmapRes256</name>
+            <dims>1, 256, 256, 128</dims>
+        </layer7>
     </input_layers>
     <output_layers>
         <layer1>
@@ -56,5 +58,9 @@
             <name>generator_1/Res128/add</name>
             <dims>1, 128, 128, 256</dims>
         </layer6>
+        <layer7>
+            <name>generator_1/Res256/add</name>
+            <dims>1, 256, 256, 128</dims>
+        </layer7>
     </output_layers>
 </model>

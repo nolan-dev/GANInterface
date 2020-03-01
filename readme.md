@@ -26,3 +26,7 @@ All these features were added on a ad hoc basis and optimized for implementation
 However, I think there is value in quickly creating interactive tools like this, I believe they can help give insight where approaches that allow slower interaction (such as running cells in a jupyter notebook) don't.  Evidence for this is pending some experimental results.
 
 Images from a model trained on an anime dataset https://www.gwern.net/Danbooru2018
+
+Compilation instructions:
+
+TODO
