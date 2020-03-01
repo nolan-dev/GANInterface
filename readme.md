@@ -27,6 +27,28 @@ However, I think there is value in quickly creating interactive tools like this,
 
 Images from a model trained on an anime dataset https://www.gwern.net/Danbooru2018
 
-Compilation instructions:
+Compilation instructions (tested on AWS Windows Server 2019 instance):
 
-TODO
+1. Install Visual Studio (tested with Community 2019) with ".NET desktop developement" and "Desktop developement with C++"
+![VS](images/visual_studio_options.png)
+
+2. Open TensorflowInterface.sln in visual studio, right click the project, and build
+![VS](images/tf_interface_build.png)
+
+3. Open GanTools.sln in visual studio, right click the project, and select "Manage NuGet Packages" (below pictured for GanStudio)
+![VS](images/ganstudio_nuget_manage.png)
+
+4. Click 'Restore' in the top bar that says 'Some NuGet packages are missing from this solution'
+![VS](images/nuget_restore.png)
+
+5. Right click the project and click build
+
+6. Repeat 3-5 for GanStudio.sln
+
+7. Copy TensorflowInterface.dll to the bin directory for GanStudio
+![VS](images/move_tensorflowinterface.png)
+
+8. Copy dependencies tensorflow.dll, vcruntime140.dll, msvcp140.dll, and the graph/data files to the bin directory.  These should be available in a recent .zip in https://github.com/nolan-dev/GANInterface/releases
+![VA](images/move_dependencies.png)
+
+9. Run GanStudio.exe
