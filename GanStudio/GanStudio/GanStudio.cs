@@ -8,12 +8,10 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
-using System.Reflection;
 using CsvHelper;
 using Microsoft.VisualBasic;
 using System.Runtime.Serialization.Formatters.Binary;
-using System.Text;
-using System.Xml;
+using System.Globalization;
 
 namespace GanStudio
 {
@@ -459,7 +457,7 @@ namespace GanStudio
                 {
                     if (lm.ReadAttributesFromCsv(lm.AttributesCsvPath) == null)
                     {
-                        MessageBox.Show(string.Format("Could not read {0}", lm.AttributesCsvPath));
+                        //MessageBox.Show(string.Format("Could not read {0}", lm.AttributesCsvPath));
                     }
                 }
                 if (_showingAdvancedAttributes)
@@ -497,6 +495,16 @@ namespace GanStudio
             currentPage.Text = string.Format("Attributes_{0}", pageCounter);
             currentPage.AutoScroll = true;
             mainTabControl.TabPages.Add(currentPage);
+            if (attributes.Count == 0)
+            {
+                Label noattLabel = new Label();
+                noattLabel.Text = "No attributes loaded.  Attributes are vectors which can be added to the latent for an existing image in order to add/remove a feature.\n" +
+                    "One way they can be found by is by taking the average latent with a certain attribute expressed and subtracting the latent for the average image.\n" +
+                    "This may require a few thousand labeled examples and takes some work.";
+                noattLabel.AutoSize = true;
+                noattLabel.Location = new System.Drawing.Point(txtBoxPosition, txtBoxPositionV);
+                currentPage.Controls.Add(noattLabel);
+            }
             foreach (string att in attributes)
             {
                 Label newLabel = new Label();
@@ -719,7 +727,7 @@ namespace GanStudio
                     using (TextWriter writer = new StreamWriter(lm.AverageLatentCsvPath,
                         true, System.Text.Encoding.UTF8))
                     {
-                        var csv = new CsvWriter(writer);
+                        var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
                         csv.WriteRecord(new LatentForFilename("all", lm._graphHashStr, string.Join(":", averageIntermediate)));
                         csv.NextRecord();
                         csv.Flush();
@@ -810,7 +818,7 @@ namespace GanStudio
             using (TextWriter writer = new StreamWriter(lm.FavoritesLatentPath,
                 true, System.Text.Encoding.UTF8))
             {
-                var csv = new CsvWriter(writer);
+                var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
                 float[] newLatent = ApplyTrackbarsToLatent(_currentLatent);
                 Debug.Assert(newLatent != null, "should have identified no activate image earlier");
                 csv.WriteRecord(new LatentForFilename(_currentImageName, lm._graphHashStr, string.Join(":", newLatent)));
@@ -899,7 +907,7 @@ namespace GanStudio
             {
                 using (StreamReader textReader = new StreamReader(lm.CustomAttributesPath))
                 {
-                    var csvr = new CsvReader(textReader);
+                    var csvr = new CsvReader(textReader, CultureInfo.InvariantCulture);
 
                     csvr.Configuration.Delimiter = ",";
                     csvr.Configuration.HasHeaderRecord = false;
@@ -936,7 +944,7 @@ namespace GanStudio
             using (TextWriter writer = new StreamWriter(lm.CustomAttributesPath,
                 true, System.Text.Encoding.UTF8))
             {
-                var csv = new CsvWriter(writer);
+                var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
                 csv.WriteRecord(new LatentForFilename(input, lm._graphHashStr, string.Join(":", newAttribute)));
                 csv.NextRecord();
                 csv.Flush();
@@ -1199,7 +1207,7 @@ namespace GanStudio
                 writer = new StreamWriter(saveFileDialog1.OpenFile());
                 if (writer != null)
                 {
-                    var csv = new CsvWriter(writer);
+                    var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
                     csv.WriteRecord(new LatentForFilename(input, lm._graphHashStr, string.Join(":", lm._attributeToLatent[input])));
                     csv.NextRecord();
                     csv.Flush();
@@ -1942,7 +1950,7 @@ namespace GanStudio
             {
                 using (StreamReader textReader = new StreamReader(lm.CustomAttributesPath))
                 {
-                    var csvr = new CsvReader(textReader);
+                    var csvr = new CsvReader(textReader, CultureInfo.InvariantCulture);
 
                     csvr.Configuration.Delimiter = ",";
                     csvr.Configuration.HasHeaderRecord = false;
@@ -1971,7 +1979,7 @@ namespace GanStudio
             using (TextWriter writer = new StreamWriter(lm.CustomAttributesPath,
                 true, System.Text.Encoding.UTF8))
             {
-                var csv = new CsvWriter(writer);
+                var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
                 csv.WriteRecord(new LatentForFilename(input, lm._graphHashStr, string.Join(":", modifier)));
                 csv.NextRecord();
                 csv.Flush();
@@ -2827,7 +2835,7 @@ namespace GanStudio
                 using (TextWriter writer = new StreamWriter(path,
                     true, System.Text.Encoding.UTF8))
                 {
-                    var csv = new CsvWriter(writer);
+                    var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
                     for (int i = 0; i < fmaps[fmapIndex].Item2.GetLength(0); i++)
                     {
                         string[] column = new string[fmaps[fmapIndex].Item2.GetLength(1)];

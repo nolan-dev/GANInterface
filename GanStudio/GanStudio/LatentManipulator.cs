@@ -4,8 +4,6 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Xml;
 using CsvHelper;
 using GanTools;
@@ -192,7 +190,7 @@ namespace GanStudio
             }
             using (TextWriter writer = new StreamWriter(LatentCsvPath, true, System.Text.Encoding.UTF8))
             {
-                var csv = new CsvWriter(writer);
+                var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
                 csv.WriteRecord(new LatentForFilename(fname, _graphHashStr, string.Join(":", latent)));
                 csv.NextRecord();
                 csv.Flush();
@@ -442,7 +440,7 @@ namespace GanStudio
             {
                 using (StreamReader textReader = new StreamReader(LatentCsvPath))
                 {
-                    var csvr = new CsvReader(textReader);
+                    var csvr = new CsvReader(textReader, CultureInfo.InvariantCulture);
                     csvr.Configuration.Delimiter = ",";
                     csvr.Configuration.HasHeaderRecord = false;
                     var records = csvr.GetRecords<LatentForFilename>();
@@ -461,7 +459,7 @@ namespace GanStudio
             {
                 using (StreamReader textReader = new StreamReader(FavoritesLatentPath))
                 {
-                    var csvr = new CsvReader(textReader);
+                    var csvr = new CsvReader(textReader, CultureInfo.InvariantCulture);
                     csvr.Configuration.Delimiter = ",";
                     csvr.Configuration.HasHeaderRecord = false;
                     var records = csvr.GetRecords<LatentForFilename>();
@@ -525,7 +523,7 @@ namespace GanStudio
             using (TextWriter writer = new StreamWriter(FavoriteAttributesPath,
                 true, System.Text.Encoding.UTF8))
             {
-                var csv = new CsvWriter(writer);
+                var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
                 csv.WriteRecord(new LatentForFilename(att, _graphHashStr, string.Join(":", _attributeToLatent[att])));
                 csv.NextRecord();
                 csv.Flush();
@@ -562,7 +560,7 @@ namespace GanStudio
             }
             using (StreamReader textReader = new StreamReader(csvPath))
             {
-                var csvr = new CsvReader(textReader);
+                var csvr = new CsvReader(textReader, CultureInfo.InvariantCulture);
                 csvr.Configuration.Delimiter = ",";
                 csvr.Configuration.HasHeaderRecord = false;
                 var records = csvr.GetRecords<RawAttribute>();
@@ -586,7 +584,7 @@ namespace GanStudio
             List<string> newAttributes = new List<string>();
             using (StreamReader textReader = new StreamReader(csvPath))
             {
-                var csvr = new CsvReader(textReader);
+                var csvr = new CsvReader(textReader, CultureInfo.InvariantCulture);
                 csvr.Configuration.Delimiter = ",";
                 csvr.Configuration.HasHeaderRecord = false;
                 var records = csvr.GetRecords<RawAttribute>();
@@ -623,7 +621,7 @@ namespace GanStudio
                 using (TextWriter writer = new StreamWriter(CustomAttributesPath,
                     true, System.Text.Encoding.UTF8))
                 {
-                    var csv = new CsvWriter(writer);
+                    var csv = new CsvWriter(writer, CultureInfo.InvariantCulture);
                     csv.WriteRecord(new LatentForFilename(newAttribute, _graphHashStr,
                         string.Join(":", _attributeToLatent[newAttribute])));
                     _attributeToLatent.Remove(newAttribute);

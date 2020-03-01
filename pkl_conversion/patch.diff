@@ -1,0 +1,490 @@
+diff --git a/dnnlib/tflib/ops/fused_bias_act.py b/dnnlib/tflib/ops/fused_bias_act.py
+index 52f6bfd..f083513 100755
+--- a/dnnlib/tflib/ops/fused_bias_act.py
++++ b/dnnlib/tflib/ops/fused_bias_act.py
+@@ -31,7 +31,7 @@ activation_funcs = {
+ 
+ #----------------------------------------------------------------------------
+ 
+-def fused_bias_act(x, b=None, axis=1, act='linear', alpha=None, gain=None, impl='cuda'):
++def fused_bias_act(x, b=None, axis=-1, act='linear', alpha=None, gain=None, impl='cuda'):
+     r"""Fused bias and activation function.
+ 
+     Adds bias `b` to activation tensor `x`, evaluates activation function `act`,
+@@ -65,7 +65,7 @@ def fused_bias_act(x, b=None, axis=1, act='linear', alpha=None, gain=None, impl=
+         'ref':  _fused_bias_act_ref,
+         'cuda': _fused_bias_act_cuda,
+     }
+-    return impl_dict[impl](x=x, b=b, axis=axis, act=act, alpha=alpha, gain=gain)
++    return impl_dict['ref'](x=x, b=b, axis=axis, act=act, alpha=alpha, gain=gain)
+ 
+ #----------------------------------------------------------------------------
+ 
+@@ -77,7 +77,7 @@ def _fused_bias_act_ref(x, b, axis, act, alpha, gain):
+     b = tf.convert_to_tensor(b) if b is not None else tf.constant([], dtype=x.dtype)
+     act_spec = activation_funcs[act]
+     assert b.shape.rank == 1 and (b.shape[0] == 0 or b.shape[0] == x.shape[axis])
+-    assert b.shape[0] == 0 or 0 <= axis < x.shape.rank
++    assert b.shape[0] == 0 or (0 <= axis < x.shape.rank or axis == -1)
+     if alpha is None:
+         alpha = act_spec.def_alpha
+     if gain is None:
+@@ -85,7 +85,7 @@ def _fused_bias_act_ref(x, b, axis, act, alpha, gain):
+ 
+     # Add bias.
+     if b.shape[0] != 0:
+-        x += tf.reshape(b, [-1 if i == axis else 1 for i in range(x.shape.rank)])
++        x += tf.reshape(b, [-1 if (i == axis or (axis == -1 and i == x.shape.rank-1)) else 1 for i in range(x.shape.rank)])
+ 
+     # Evaluate activation function.
+     x = act_spec.func(x, alpha=alpha)
+diff --git a/dnnlib/tflib/ops/upfirdn_2d.py b/dnnlib/tflib/ops/upfirdn_2d.py
+index fd23777..87631ab 100755
+--- a/dnnlib/tflib/ops/upfirdn_2d.py
++++ b/dnnlib/tflib/ops/upfirdn_2d.py
+@@ -59,7 +59,7 @@ def upfirdn_2d(x, k, upx=1, upy=1, downx=1, downy=1, padx0=0, padx1=0, pady0=0,
+         'ref':  _upfirdn_2d_ref,
+         'cuda': _upfirdn_2d_cuda,
+     }
+-    return impl_dict[impl](x=x, k=k, upx=upx, upy=upy, downx=downx, downy=downy, padx0=padx0, padx1=padx1, pady0=pady0, pady1=pady1)
++    return impl_dict['ref'](x=x, k=k, upx=upx, upy=upy, downx=downx, downy=downy, padx0=padx0, padx1=padx1, pady0=pady0, pady1=pady1)
+ 
+ #----------------------------------------------------------------------------
+ 
+@@ -93,7 +93,9 @@ def _upfirdn_2d_ref(x, k, upx, upy, downx, downy, padx0, padx1, pady0, pady1):
+     x = tf.transpose(x, [0, 3, 1, 2])
+     x = tf.reshape(x, [-1, 1, inH * upy + pady0 + pady1, inW * upx + padx0 + padx1])
+     w = tf.constant(k[::-1, ::-1, np.newaxis, np.newaxis], dtype=x.dtype)
+-    x = tf.nn.conv2d(x, w, strides=[1,1,1,1], padding='VALID', data_format='NCHW')
++    x = tf.transpose(x, [0, 2, 3, 1])
++    x = tf.nn.conv2d(x, w, strides=[1,1,1,1], padding='VALID', data_format='NHWC')
++    x = tf.transpose(x, [0, 3, 1, 2])
+     x = tf.reshape(x, [-1, minorDim, inH * upy + pady0 + pady1 - kernelH + 1, inW * upx + padx0 + padx1 - kernelW + 1])
+     x = tf.transpose(x, [0, 2, 3, 1])
+ 
+@@ -141,7 +143,7 @@ def _upfirdn_2d_cuda(x, k, upx, upy, downx, downy, padx0, padx1, pady0, pady1):
+ 
+ #----------------------------------------------------------------------------
+ 
+-def filter_2d(x, k, gain=1, data_format='NCHW', impl='cuda'):
++def filter_2d(x, k, gain=1, data_format='NHWC', impl='cuda'):
+     r"""Filter a batch of 2D images with the given FIR filter.
+ 
+     Accepts a batch of 2D images of the shape `[N, C, H, W]` or `[N, H, W, C]`
+@@ -166,7 +168,7 @@ def filter_2d(x, k, gain=1, data_format='NCHW', impl='cuda'):
+ 
+ #----------------------------------------------------------------------------
+ 
+-def upsample_2d(x, k=None, factor=2, gain=1, data_format='NCHW', impl='cuda'):
++def upsample_2d(x, k=None, factor=2, gain=1, data_format='NHWC', impl='cuda'):
+     r"""Upsample a batch of 2D images with the given filter.
+ 
+     Accepts a batch of 2D images of the shape `[N, C, H, W]` or `[N, H, W, C]`
+@@ -199,7 +201,7 @@ def upsample_2d(x, k=None, factor=2, gain=1, data_format='NCHW', impl='cuda'):
+ 
+ #----------------------------------------------------------------------------
+ 
+-def downsample_2d(x, k=None, factor=2, gain=1, data_format='NCHW', impl='cuda'):
++def downsample_2d(x, k=None, factor=2, gain=1, data_format='NHWC', impl='cuda'):
+     r"""Downsample a batch of 2D images with the given filter.
+ 
+     Accepts a batch of 2D images of the shape `[N, C, H, W]` or `[N, H, W, C]`
+@@ -231,7 +233,7 @@ def downsample_2d(x, k=None, factor=2, gain=1, data_format='NCHW', impl='cuda'):
+ 
+ #----------------------------------------------------------------------------
+ 
+-def upsample_conv_2d(x, w, k=None, factor=2, gain=1, data_format='NCHW', impl='cuda'):
++def upsample_conv_2d(x, w, k=None, factor=2, gain=1, data_format='NHWC', impl='cuda'):
+     r"""Fused `upsample_2d()` followed by `tf.nn.conv2d()`.
+ 
+     Padding is performed only once at the beginning, not between the operations.
+@@ -293,7 +295,7 @@ def upsample_conv_2d(x, w, k=None, factor=2, gain=1, data_format='NCHW', impl='c
+ 
+ #----------------------------------------------------------------------------
+ 
+-def conv_downsample_2d(x, w, k=None, factor=2, gain=1, data_format='NCHW', impl='cuda'):
++def conv_downsample_2d(x, w, k=None, factor=2, gain=1, data_format='NHWC', impl='cuda'):
+     r"""Fused `tf.nn.conv2d()` followed by `downsample_2d()`.
+ 
+     Padding is performed only once at the beginning, not between the operations.
+@@ -350,7 +352,7 @@ def _setup_kernel(k):
+     assert k.shape[0] == k.shape[1]
+     return k
+ 
+-def _simple_upfirdn_2d(x, k, up=1, down=1, pad0=0, pad1=0, data_format='NCHW', impl='cuda'):
++def _simple_upfirdn_2d(x, k, up=1, down=1, pad0=0, pad1=0, data_format='NHWC', impl='cuda'):
+     assert data_format in ['NCHW', 'NHWC']
+     assert x.shape.rank == 4
+     y = x
+diff --git a/dnnlib/tflib/tfutil.py b/dnnlib/tflib/tfutil.py
+index 1127c7b..a01c5cf 100755
+--- a/dnnlib/tflib/tfutil.py
++++ b/dnnlib/tflib/tfutil.py
+@@ -116,10 +116,10 @@ def init_tf(config_dict: dict = None) -> None:
+     if np_random_seed is not None:
+         np.random.seed(np_random_seed)
+     tf_random_seed = cfg["rnd.tf_random_seed"]
+-    if tf_random_seed == "auto":
+-        tf_random_seed = np.random.randint(1 << 31)
+-    if tf_random_seed is not None:
+-        tf.set_random_seed(tf_random_seed)
++    #if tf_random_seed == "auto":
++    #    tf_random_seed = np.random.randint(1 << 31)
++    #if tf_random_seed is not None:
++    #    tf.set_random_seed(tf_random_seed)
+ 
+     # Setup environment variables.
+     for key, value in cfg.items():
+@@ -244,7 +244,7 @@ def convert_images_to_uint8(images, drange=[-1,1], nchw_to_nhwc=False, shrink=1)
+     images = tf.cast(images, tf.float32)
+     if shrink > 1:
+         ksize = [1, 1, shrink, shrink]
+-        images = tf.nn.avg_pool(images, ksize=ksize, strides=ksize, padding="VALID", data_format="NCHW")
++        images = tf.nn.avg_pool(images, ksize=ksize, strides=ksize, padding="VALID", data_format="NHWC")
+     if nchw_to_nhwc:
+         images = tf.transpose(images, [0, 2, 3, 1])
+     scale = 255 / (drange[1] - drange[0])
+diff --git a/run_training.py b/run_training.py
+index bc4c0a2..08ebe93 100755
+--- a/run_training.py
++++ b/run_training.py
+@@ -160,9 +160,9 @@ def main():
+         formatter_class=argparse.RawDescriptionHelpFormatter
+     )
+     parser.add_argument('--result-dir', help='Root directory for run results (default: %(default)s)', default='results', metavar='DIR')
+-    parser.add_argument('--data-dir', help='Dataset root directory', required=True)
+-    parser.add_argument('--dataset', help='Training dataset', required=True)
+-    parser.add_argument('--config', help='Training config (default: %(default)s)', default='config-f', required=True, dest='config_id', metavar='CONFIG')
++    parser.add_argument('--data-dir', help='Dataset root directory', default=".")
++    parser.add_argument('--dataset', help='Training dataset', default="_")
++    parser.add_argument('--config', help='Training config (default: %(default)s)', default='config-f', dest='config_id', metavar='CONFIG')
+     parser.add_argument('--num-gpus', help='Number of GPUs (default: %(default)s)', default=1, type=int, metavar='N')
+     parser.add_argument('--total-kimg', help='Training length in thousands of images (default: %(default)s)', metavar='KIMG', default=25000, type=int)
+     parser.add_argument('--gamma', help='R1 regularization weight (default is config dependent)', default=None, type=float)
+@@ -171,9 +171,11 @@ def main():
+ 
+     args = parser.parse_args()
+ 
++    """
+     if not os.path.exists(args.data_dir):
+         print ('Error: dataset root directory does not exist.')
+         sys.exit(1)
++    """
+ 
+     if args.config_id not in _valid_configs:
+         print ('Error: --config value must be one of: ', ', '.join(_valid_configs))
+diff --git a/training/networks_stylegan.py b/training/networks_stylegan.py
+index 76ce31c..28cf423 100755
+--- a/training/networks_stylegan.py
++++ b/training/networks_stylegan.py
+@@ -43,7 +43,7 @@ def _blur2d(x, f=[1,2,1], normalize=True, flip=False, stride=1):
+     x = tf.cast(x, tf.float32)  # tf.nn.depthwise_conv2d() doesn't support fp16
+     f = tf.constant(f, dtype=x.dtype, name='filter')
+     strides = [1, 1, stride, stride]
+-    x = tf.nn.depthwise_conv2d(x, f, strides=strides, padding='SAME', data_format='NCHW')
++    x = tf.nn.depthwise_conv2d(x, f, strides=strides, padding='SAME', data_format='NHWC')
+     x = tf.cast(x, orig_dtype)
+     return x
+ 
+@@ -86,7 +86,7 @@ def _downscale2d(x, factor=2, gain=1):
+     # Large factor => downscale using tf.nn.avg_pool().
+     # NOTE: Requires tf_config['graph_options.place_pruned_graph']=True to work.
+     ksize = [1, 1, factor, factor]
+-    return tf.nn.avg_pool(x, ksize=ksize, strides=ksize, padding='VALID', data_format='NCHW')
++    return tf.nn.avg_pool(x, ksize=ksize, strides=ksize, padding='VALID', data_format='NHWC')
+ 
+ #----------------------------------------------------------------------------
+ # High-level ops for manipulating 4D activation tensors.
+@@ -164,7 +164,7 @@ def conv2d(x, fmaps, kernel, **kwargs):
+     assert kernel >= 1 and kernel % 2 == 1
+     w = get_weight([kernel, kernel, x.shape[1].value, fmaps], **kwargs)
+     w = tf.cast(w, x.dtype)
+-    return tf.nn.conv2d(x, w, strides=[1,1,1,1], padding='SAME', data_format='NCHW')
++    return tf.nn.conv2d(x, w, strides=[1,1,1,1], padding='SAME', data_format='NHWC')
+ 
+ #----------------------------------------------------------------------------
+ # Fused convolution + scaling.
+@@ -187,7 +187,7 @@ def upscale2d_conv2d(x, fmaps, kernel, fused_scale='auto', **kwargs):
+     w = tf.add_n([w[1:, 1:], w[:-1, 1:], w[1:, :-1], w[:-1, :-1]])
+     w = tf.cast(w, x.dtype)
+     os = [tf.shape(x)[0], fmaps, x.shape[2] * 2, x.shape[3] * 2]
+-    return tf.nn.conv2d_transpose(x, w, os, strides=[1,1,2,2], padding='SAME', data_format='NCHW')
++    return tf.nn.conv2d_transpose(x, w, os, strides=[1,1,2,2], padding='SAME', data_format='NHWC')
+ 
+ def conv2d_downscale2d(x, fmaps, kernel, fused_scale='auto', **kwargs):
+     assert kernel >= 1 and kernel % 2 == 1
+@@ -204,7 +204,7 @@ def conv2d_downscale2d(x, fmaps, kernel, fused_scale='auto', **kwargs):
+     w = tf.pad(w, [[1,1], [1,1], [0,0], [0,0]], mode='CONSTANT')
+     w = tf.add_n([w[1:, 1:], w[:-1, 1:], w[1:, :-1], w[:-1, :-1]]) * 0.25
+     w = tf.cast(w, x.dtype)
+-    return tf.nn.conv2d(x, w, strides=[1,1,2,2], padding='SAME', data_format='NCHW')
++    return tf.nn.conv2d(x, w, strides=[1,1,2,2], padding='SAME', data_format='NHWC')
+ 
+ #----------------------------------------------------------------------------
+ # Apply bias to the given activation tensor.
+@@ -244,7 +244,7 @@ def pixel_norm(x, epsilon=1e-8):
+ # Instance normalization.
+ 
+ def instance_norm(x, epsilon=1e-8):
+-    assert len(x.shape) == 4 # NCHW
++    assert len(x.shape) == 4 # NHWC
+     with tf.variable_scope('InstanceNorm'):
+         orig_dtype = x.dtype
+         x = tf.cast(x, tf.float32)
+@@ -267,7 +267,7 @@ def style_mod(x, dlatent, **kwargs):
+ # Noise input.
+ 
+ def apply_noise(x, noise_var=None, randomize_noise=True):
+-    assert len(x.shape) == 4 # NCHW
++    assert len(x.shape) == 4 # NHWC
+     with tf.variable_scope('Noise'):
+         if noise_var is None or randomize_noise:
+             noise = tf.random_normal([tf.shape(x)[0], 1, x.shape[2], x.shape[3]], dtype=x.dtype)
+@@ -282,7 +282,7 @@ def apply_noise(x, noise_var=None, randomize_noise=True):
+ def minibatch_stddev_layer(x, group_size=4, num_new_features=1):
+     with tf.variable_scope('MinibatchStddev'):
+         group_size = tf.minimum(group_size, tf.shape(x)[0])     # Minibatch must be divisible by (or smaller than) group_size.
+-        s = x.shape                                             # [NCHW]  Input shape.
++        s = x.shape                                             # [NHWC]  Input shape.
+         y = tf.reshape(x, [group_size, -1, num_new_features, s[1]//num_new_features, s[2], s[3]])   # [GMncHW] Split minibatch into M groups of size G. Split channels into n channel groups c.
+         y = tf.cast(y, tf.float32)                              # [GMncHW] Cast to FP32.
+         y -= tf.reduce_mean(y, axis=0, keepdims=True)           # [GMncHW] Subtract mean over group.
+@@ -292,7 +292,7 @@ def minibatch_stddev_layer(x, group_size=4, num_new_features=1):
+         y = tf.reduce_mean(y, axis=[2])                         # [Mn11] Split channels into c channel groups
+         y = tf.cast(y, x.dtype)                                 # [Mn11]  Cast back to original data type.
+         y = tf.tile(y, [group_size, 1, s[2], s[3]])             # [NnHW]  Replicate over group and pixels.
+-        return tf.concat([x, y], axis=1)                        # [NCHW]  Append as new fmap.
++        return tf.concat([x, y], axis=1)                        # [NHWC]  Append as new fmap.
+ 
+ #----------------------------------------------------------------------------
+ # Style-based generator used in the StyleGAN paper.
+diff --git a/training/networks_stylegan2.py b/training/networks_stylegan2.py
+index 6c96fc1..e588d2b 100755
+--- a/training/networks_stylegan2.py
++++ b/training/networks_stylegan2.py
+@@ -51,20 +51,20 @@ def dense_layer(x, fmaps, gain=1, use_wscale=True, lrmul=1, weight_var='weight')
+ def conv2d_layer(x, fmaps, kernel, up=False, down=False, resample_kernel=None, gain=1, use_wscale=True, lrmul=1, weight_var='weight'):
+     assert not (up and down)
+     assert kernel >= 1 and kernel % 2 == 1
+-    w = get_weight([kernel, kernel, x.shape[1].value, fmaps], gain=gain, use_wscale=use_wscale, lrmul=lrmul, weight_var=weight_var)
++    w = get_weight([kernel, kernel, x.shape[3].value, fmaps], gain=gain, use_wscale=use_wscale, lrmul=lrmul, weight_var=weight_var)
+     if up:
+-        x = upsample_conv_2d(x, tf.cast(w, x.dtype), data_format='NCHW', k=resample_kernel)
++        x = upsample_conv_2d(x, tf.cast(w, x.dtype), data_format='NHWC', k=resample_kernel)
+     elif down:
+-        x = conv_downsample_2d(x, tf.cast(w, x.dtype), data_format='NCHW', k=resample_kernel)
++        x = conv_downsample_2d(x, tf.cast(w, x.dtype), data_format='NHWC', k=resample_kernel)
+     else:
+-        x = tf.nn.conv2d(x, tf.cast(w, x.dtype), data_format='NCHW', strides=[1,1,1,1], padding='SAME')
++        x = tf.nn.conv2d(x, tf.cast(w, x.dtype), data_format='NHWC', strides=[1,1,1,1], padding='SAME')
+     return x
+ 
+ #----------------------------------------------------------------------------
+ # Apply bias and activation func.
+ 
+ def apply_bias_act(x, act='linear', alpha=None, gain=None, lrmul=1, bias_var='bias'):
+-    b = tf.get_variable(bias_var, shape=[x.shape[1]], initializer=tf.initializers.zeros()) * lrmul
++    b = tf.get_variable(bias_var, shape=[x.shape[-1]], initializer=tf.initializers.zeros()) * lrmul
+     return fused_bias_act(x, b=tf.cast(b, x.dtype), act=act, alpha=alpha, gain=gain)
+ 
+ #----------------------------------------------------------------------------
+@@ -91,11 +91,11 @@ def modulated_conv2d_layer(x, y, fmaps, kernel, up=False, down=False, demodulate
+     assert kernel >= 1 and kernel % 2 == 1
+ 
+     # Get weight.
+-    w = get_weight([kernel, kernel, x.shape[1].value, fmaps], gain=gain, use_wscale=use_wscale, lrmul=lrmul, weight_var=weight_var)
++    w = get_weight([kernel, kernel, x.shape[3].value, fmaps], gain=gain, use_wscale=use_wscale, lrmul=lrmul, weight_var=weight_var)
+     ww = w[np.newaxis] # [BkkIO] Introduce minibatch dimension.
+ 
+     # Modulate.
+-    s = dense_layer(y, fmaps=x.shape[1].value, weight_var=mod_weight_var) # [BI] Transform incoming W to style.
++    s = dense_layer(y, fmaps=x.shape[3].value, weight_var=mod_weight_var) # [BI] Transform incoming W to style.
+     s = apply_bias_act(s, bias_var=mod_bias_var) + 1 # [BI] Add bias (initially 1).
+     ww *= tf.cast(s[:, np.newaxis, np.newaxis, :, np.newaxis], w.dtype) # [BkkIO] Scale input feature maps.
+ 
+@@ -106,22 +106,22 @@ def modulated_conv2d_layer(x, y, fmaps, kernel, up=False, down=False, demodulate
+ 
+     # Reshape/scale input.
+     if fused_modconv:
+-        x = tf.reshape(x, [1, -1, x.shape[2], x.shape[3]]) # Fused => reshape minibatch to convolution groups.
++        x = tf.reshape(x, [1, x.shape[1], x.shape[2], -1]) # Fused => reshape minibatch to convolution groups.
+         w = tf.reshape(tf.transpose(ww, [1, 2, 3, 0, 4]), [ww.shape[1], ww.shape[2], ww.shape[3], -1])
+     else:
+         x *= tf.cast(s[:, :, np.newaxis, np.newaxis], x.dtype) # [BIhw] Not fused => scale input activations.
+ 
+     # Convolution with optional up/downsampling.
+     if up:
+-        x = upsample_conv_2d(x, tf.cast(w, x.dtype), data_format='NCHW', k=resample_kernel)
++        x = upsample_conv_2d(x, tf.cast(w, x.dtype), data_format='NHWC', k=resample_kernel)
+     elif down:
+-        x = conv_downsample_2d(x, tf.cast(w, x.dtype), data_format='NCHW', k=resample_kernel)
++        x = conv_downsample_2d(x, tf.cast(w, x.dtype), data_format='NHWC', k=resample_kernel)
+     else:
+-        x = tf.nn.conv2d(x, tf.cast(w, x.dtype), data_format='NCHW', strides=[1,1,1,1], padding='SAME')
++        x = tf.nn.conv2d(x, tf.cast(w, x.dtype), data_format='NHWC', strides=[1,1,1,1], padding='SAME')
+ 
+     # Reshape/scale output.
+     if fused_modconv:
+-        x = tf.reshape(x, [-1, fmaps, x.shape[2], x.shape[3]]) # Fused => reshape convolution groups back to minibatch.
++        x = tf.reshape(x, [-1, x.shape[1], x.shape[2], fmaps]) # Fused => reshape convolution groups back to minibatch.
+     elif demodulate:
+         x *= tf.cast(d[:, :, np.newaxis, np.newaxis], x.dtype) # [BOhw] Not fused => scale output activations.
+     return x
+@@ -270,7 +270,7 @@ def G_mapping(
+     labels_in.set_shape([None, label_size])
+     latents_in = tf.cast(latents_in, dtype)
+     labels_in = tf.cast(labels_in, dtype)
+-    x = latents_in
++    x = tf.random.normal([1, 512], name="new_latent")#latents_in
+ 
+     # Embed labels and concatenate them with latents.
+     if label_size:
+@@ -360,6 +360,7 @@ def G_synthesis_stylegan_revised(
+     with tf.variable_scope('4x4'):
+         with tf.variable_scope('Const'):
+             x = tf.get_variable('const', shape=[1, nf(1), 4, 4], initializer=tf.initializers.random_normal())
++            x = tf.transpose(x, [0, 2, 3, 1])
+             x = tf.tile(tf.cast(x, dtype), [tf.shape(dlatents_in)[0], 1, 1, 1])
+         with tf.variable_scope('Conv'):
+             x = layer(x, layer_idx=0, fmaps=nf(1), kernel=3)
+@@ -447,16 +448,18 @@ def G_synthesis_stylegan2(
+     noise_inputs = []
+     for layer_idx in range(num_layers - 1):
+         res = (layer_idx + 5) // 2
+-        shape = [1, 1, 2**res, 2**res]
++        shape = [1, 2**res, 2**res, 1]
+         noise_inputs.append(tf.get_variable('noise%d' % layer_idx, shape=shape, initializer=tf.initializers.random_normal(), trainable=False))
+ 
+     # Single convolution layer with all the bells and whistles.
+     def layer(x, layer_idx, fmaps, kernel, up=False):
+         x = modulated_conv2d_layer(x, dlatents_in[:, layer_idx], fmaps=fmaps, kernel=kernel, up=up, resample_kernel=resample_kernel, fused_modconv=fused_modconv)
+-        if randomize_noise:
+-            noise = tf.random_normal([tf.shape(x)[0], 1, x.shape[2], x.shape[3]], dtype=x.dtype)
+-        else:
+-            noise = tf.cast(noise_inputs[layer_idx], x.dtype)
++        shape = x.get_shape().as_list()
++        noise = tf.constant(np.random.normal(0., 1., [1, shape[1], shape[2], 1]), dtype=tf.float32)
++        #if randomize_noise:
++        #    noise = tf.random_normal([tf.shape(x)[0], x.shape[1], x.shape[2], 1], dtype=x.dtype)
++        #else:
++        #    noise = tf.cast(noise_inputs[layer_idx], x.dtype)
+         noise_strength = tf.get_variable('noise_strength', shape=[], initializer=tf.initializers.zeros())
+         x += noise * tf.cast(noise_strength, x.dtype)
+         return apply_bias_act(x, act=act)
+@@ -468,6 +471,8 @@ def G_synthesis_stylegan2(
+             x = layer(x, layer_idx=res*2-5, fmaps=nf(res-1), kernel=3, up=True)
+         with tf.variable_scope('Conv1'):
+             x = layer(x, layer_idx=res*2-4, fmaps=nf(res-1), kernel=3)
++        
++        x += tf.zeros_like(x, dtype=tf.float32, name="FmapInput")
+         if architecture == 'resnet':
+             with tf.variable_scope('Skip'):
+                 t = conv2d_layer(t, fmaps=nf(res-1), kernel=1, up=True, resample_kernel=resample_kernel)
+@@ -486,6 +491,7 @@ def G_synthesis_stylegan2(
+     with tf.variable_scope('4x4'):
+         with tf.variable_scope('Const'):
+             x = tf.get_variable('const', shape=[1, nf(1), 4, 4], initializer=tf.initializers.random_normal())
++            x = tf.transpose(x, [0, 2, 3, 1])
+             x = tf.tile(tf.cast(x, dtype), [tf.shape(dlatents_in)[0], 1, 1, 1])
+         with tf.variable_scope('Conv'):
+             x = layer(x, layer_idx=0, fmaps=nf(1), kernel=3)
+@@ -503,7 +509,11 @@ def G_synthesis_stylegan2(
+     images_out = y
+ 
+     assert images_out.dtype == tf.as_dtype(dtype)
+-    return tf.identity(images_out, name='images_out')
++    x = tf.identity(images_out, name='images_out')
++    import os
++    if os.path.exists("save_weights.meta"):
++        x = tf.image.encode_png(tflib.convert_images_to_uint8(x)[0], name="output")
++    return x
+ 
+ #----------------------------------------------------------------------------
+ # Original StyleGAN discriminator.
+diff --git a/training/training_loop.py b/training/training_loop.py
+index c2d88cf..2411c1b 100755
+--- a/training/training_loop.py
++++ b/training/training_loop.py
+@@ -101,6 +101,8 @@ def training_schedule(
+ 
+ #----------------------------------------------------------------------------
+ # Main training script.
++def to_png(x, nchw_to_nhwc):
++    return tf.image.encode_png(tflib.convert_images_to_uint8(x, nchw_to_nhwc=nchw_to_nhwc)[0], name="output")
+ 
+ def training_loop(
+     G_args                  = {},       # Options for generator network.
+@@ -135,19 +137,29 @@ def training_loop(
+ 
+     # Initialize dnnlib and TensorFlow.
+     tflib.init_tf(tf_config)
++    
++    import os
++    save_graph_mode = os.path.exists("save_weights.index")
+     num_gpus = dnnlib.submit_config.num_gpus
+ 
+     # Load training set.
+-    training_set = dataset.load_dataset(data_dir=dnnlib.convert_path(data_dir), verbose=True, **dataset_args)
+-    grid_size, grid_reals, grid_labels = misc.setup_snapshot_image_grid(training_set, **grid_args)
+-    misc.save_image_grid(grid_reals, dnnlib.make_run_dir_path('reals.png'), drange=training_set.dynamic_range, grid_size=grid_size)
++    if not save_graph_mode:
++        training_set = dataset.load_dataset(data_dir=dnnlib.convert_path(data_dir), verbose=True, **dataset_args)
++        grid_size, grid_reals, grid_labels = misc.setup_snapshot_image_grid(training_set, **grid_args)
++        misc.save_image_grid(grid_reals, dnnlib.make_run_dir_path('reals.png'), drange=training_set.dynamic_range, grid_size=grid_size)
++    else:
++        with open("resolution.txt", "r") as f:
++            resolution = [int(n) for n in f.read().split(",")]
++        from collections import namedtuple
++        training_set = namedtuple("training_set", ["shape", "label_size"])([3, resolution[0], resolution[1]], 0)
+ 
+     # Construct or load networks.
+     with tf.device('/gpu:0'):
+         if resume_pkl is None or resume_with_new_nets:
+             print('Constructing networks...')
+-            G = tflib.Network('G', num_channels=training_set.shape[0], resolution=training_set.shape[1], label_size=training_set.label_size, **G_args)
+-            D = tflib.Network('D', num_channels=training_set.shape[0], resolution=training_set.shape[1], label_size=training_set.label_size, **D_args)
++            G = tflib.Network('G', num_channels=training_set.shape[0], resolution=training_set.shape[2], label_size=training_set.label_size, **G_args)
++            if not save_graph_mode:
++                D = tflib.Network('D', num_channels=training_set.shape[0], resolution=training_set.shape[2], label_size=training_set.label_size, **D_args)
+             Gs = G.clone('Gs')
+         if resume_pkl is not None:
+             print('Loading networks from "%s"...' % resume_pkl)
+@@ -156,11 +168,13 @@ def training_loop(
+             else: G = rG; D = rD; Gs = rGs
+ 
+     # Print layers and generate initial image snapshot.
+-    G.print_layers(); D.print_layers()
+-    sched = training_schedule(cur_nimg=total_kimg*1000, training_set=training_set, **sched_args)
+-    grid_latents = np.random.randn(np.prod(grid_size), *G.input_shape[1:])
+-    grid_fakes = Gs.run(grid_latents, grid_labels, is_validation=True, minibatch_size=sched.minibatch_gpu)
+-    misc.save_image_grid(grid_fakes, dnnlib.make_run_dir_path('fakes_init.png'), drange=drange_net, grid_size=grid_size)
++    G.print_layers()
++    if not save_graph_mode:
++        D.print_layers()
++        sched = training_schedule(cur_nimg=total_kimg*1000, training_set=training_set, **sched_args)
++        grid_latents = np.random.randn(np.prod(grid_size), *G.input_shape[1:])
++        grid_fakes = Gs.run(grid_latents, grid_labels, is_validation=True, minibatch_size=sched.minibatch_gpu)
++        misc.save_image_grid(grid_fakes, dnnlib.make_run_dir_path('fakes_init.png'), drange=drange_net, grid_size=grid_size)
+ 
+     # Setup training inputs.
+     print('Building TensorFlow graph...')
+@@ -171,7 +185,18 @@ def training_loop(
+         minibatch_gpu_in     = tf.placeholder(tf.int32, name='minibatch_gpu_in', shape=[])
+         minibatch_multiplier = minibatch_size_in // (minibatch_gpu_in * num_gpus)
+         Gs_beta              = 0.5 ** tf.div(tf.cast(minibatch_size_in, tf.float32), G_smoothing_kimg * 1000.0) if G_smoothing_kimg > 0.0 else 0.0
+-
++    # restore weights
++    if os.path.exists("save_weights.index"):
++        saver = tf.train.Saver(var_list=[v for v in tf.trainable_variables() if "Dataset/" not in v.name])
++        saver.restore(tf.get_default_session(), "save_weights")
++        
++        tf.saved_model.simple_save(tf.get_default_session(), "saved_graph",
++                               inputs={t.name: t for t in Gs.input_templates},#tf.get_default_graph().get_tensor_by_name("G_synthesis/dlatents_in:0")},
++                               outputs={"Gs/G_synthesis/output:0": tf.get_default_graph().get_tensor_by_name("Gs/G_synthesis/output:0")}) # {t.name: t for t in Gs.output_templates})
++        import sys
++        sys.exit(0)
++
++       
+     # Setup optimizers.
+     G_opt_args = dict(G_opt_args)
+     D_opt_args = dict(D_opt_args)
